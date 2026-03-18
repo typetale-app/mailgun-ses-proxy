@@ -1,10 +1,17 @@
-import { SendEmailRequest } from "@aws-sdk/client-sesv2"
 import { MailgunMessage } from "@/types/mailgun"
 import { NotificationEvent } from "../../lib/core/aws-utils"
 import { safeStringify } from "../../lib/core/common"
 import { PrismaClient } from "../../lib/generated"
 
 export const prisma = new PrismaClient()
+
+function getEnvBoolean(name: string, fallback = false) {
+    const raw = process.env[name]
+    if (!raw) return fallback
+    return ["1", "true", "yes", "on"].includes(raw.toLowerCase())
+}
+
+const PERSIST_NEWSLETTER_FORMATTED_CONTENTS = getEnvBoolean("PERSIST_NEWSLETTER_FORMATTED_CONTENTS", false)
 
 export async function createNewsletterBatchEntry(siteId: string, message: MailgunMessage) {
     const batchId = message["v:email-id"]
@@ -21,12 +28,18 @@ export async function createNewsletterBatchEntry(siteId: string, message: Mailgu
     })
 }
 
-export async function createNewsletterEntry(messageId: string, batchId: string, payload: SendEmailRequest) {
-    const toEmail = payload.Destination?.ToAddresses?.join("") || ""
+export async function createNewsletterEntry(
+    messageId: string,
+    batchId: string,
+    toEmail: string,
+    recipientData: string,
+    formatedContents = ""
+) {
     return prisma.newsletterMessages.create({
         data: {
             newsletterBatchId: batchId,
-            formatedContents: safeStringify(payload),
+            formatedContents,
+            recipientData,
             toEmail,
             messageId,
         },
@@ -37,18 +50,24 @@ export async function createNewsletterErrorEntry(
     messageId: string,
     errorMessage: string,
     batchId: string,
-    payload: SendEmailRequest
+    toEmail: string,
+    recipientData: string,
+    formatedContents = ""
 ) {
-    const toEmail = payload.Destination?.ToAddresses?.join("") || ""
     return prisma.newsletterErrors.create({
         data: {
             error: errorMessage,
             newsletterBatchId: batchId,
             messageId: messageId,
-            formatedContents: safeStringify(payload),
+            formatedContents,
+            recipientData,
             toEmail
         },
     })
+}
+
+export function shouldPersistNewsletterFormattedContents() {
+    return PERSIST_NEWSLETTER_FORMATTED_CONTENTS
 }
 
 export function saveNewsletterNotification(event: NotificationEvent) {

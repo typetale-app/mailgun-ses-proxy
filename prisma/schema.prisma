@@ -29,6 +29,7 @@ model NewsletterMessages {
   newsletterBatchId  String
   created            DateTime                  @default(now())
   formatedContents   String                    @db.LongText
+  recipientData      String?                   @db.Text
   notificationEvents NewsletterNotifications[]
   newsletterBatch    NewsletterBatch           @relation(fields: [newsletterBatchId], references: [id])
 }
@@ -41,6 +42,7 @@ model NewsletterErrors {
   newsletterBatchId String
   messageId         String          @unique
   formatedContents  String          @db.LongText
+  recipientData     String?         @db.Text
   newsletterBatch   NewsletterBatch @relation(fields: [newsletterBatchId], references: [id])
 }
 

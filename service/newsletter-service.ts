@@ -1,12 +1,21 @@
-import { preparePayload } from "../lib/core/aws-utils"
+import { preparePayload, PreparedEmail } from "../lib/core/aws-utils"
 import { safeStringify } from "../lib/core/common"
 import { SendEmailCommand } from "@aws-sdk/client-sesv2"
 import { DeleteMessageCommand, Message, SendMessageCommand } from "@aws-sdk/client-sqs"
-import { createNewsletterBatchEntry, createNewsletterEntry, createNewsletterErrorEntry, getNewsletterContent } from "./database/db"
+import {
+    createNewsletterBatchEntry,
+    createNewsletterEntry,
+    createNewsletterErrorEntry,
+    getNewsletterContent,
+    shouldPersistNewsletterFormattedContents,
+} from "./database/db"
 import { QUEUE_URL, sesNewsletterClient, sqsClient } from "./aws/awsHelper"
 import logger from "../lib/core/logger"
+// @ts-ignore
+import { randomUUID } from "node:crypto"
 
 const log = logger.child({ service: "service:newsletter-service" })
+const PERSIST_NEWSLETTER_FORMATTED_CONTENTS = shouldPersistNewsletterFormattedContents()
 
 export async function addNewsletterToQueue(message: any, siteId: string, auth: any) {
     if (!message) throw new Error("Message body is empty or invalid.")
@@ -32,21 +41,33 @@ export async function addNewsletterToQueue(message: any, siteId: string, auth: a
     return { batchId: message["v:email-id"], messageId: response.MessageId }
 }
 
+async function sendSingleMail(prepared: PreparedEmail, dbId: string, siteId: string, batchId: string) {
+    const { request, recipientVariables } = prepared
+    const toEmail = request.Destination?.ToAddresses?.join("") || ""
+    const recipientData = JSON.stringify({ toEmail, variables: recipientVariables })
+    const formatedContents = PERSIST_NEWSLETTER_FORMATTED_CONTENTS ? safeStringify(request) : ""
+    try {
+        const cmd = new SendEmailCommand(request)
+        const resp = await sesNewsletterClient().send(cmd)
+        const messageId = resp.MessageId as string
+        await createNewsletterEntry(messageId, dbId, toEmail, recipientData, formatedContents)
+        log.info({ messageId, siteId }, "email sent")
+    } catch (e) {
+        const tempMessageId = randomUUID()
+        log.error({ err: e, tempMessageId, siteId }, "SES send failed, recording error entry")
+        await createNewsletterErrorEntry(tempMessageId, String(e), batchId, toEmail, recipientData, formatedContents)
+        return { errorMessage: e }
+    }
+}
+
 async function sendMail(siteId: string, dbId: string) {
     const contents = await getNewsletterContent(dbId)
     const sendEmailRequests = preparePayload(contents, siteId)
     const batchId = contents["v:email-id"]
-    for (const requests of sendEmailRequests) {
-        try {
-            const cmd = new SendEmailCommand(requests)
-            const resp = await sesNewsletterClient().send(cmd)
-            const messageId = resp.MessageId as string
-            await createNewsletterEntry(messageId, dbId, requests)
-            log.info({ messageId, siteId }, "email sent")
-        } catch (e) {
-            log.error(e, "error occurred at sendMail")
-            await createNewsletterErrorEntry(String(e), siteId, batchId, requests)
-            return { errorMessage: e }
+    for (const prepared of sendEmailRequests) {
+        const result = await sendSingleMail(prepared, dbId, siteId, batchId)
+        if (result?.errorMessage) {
+            return result
         }
     }
     return { batchId }
@@ -89,6 +110,6 @@ export async function validateAndSend(message: Message) {
             )
         }
     } catch (e) {
-        log.error({ error: e, batchId: message.Body }, "error occurred at validateAndSend")
+        log.error({ err: e, batchId: message.Body }, "error occurred at validateAndSend")
     }
 }
