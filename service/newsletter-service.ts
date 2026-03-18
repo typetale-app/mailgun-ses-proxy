@@ -11,6 +11,7 @@ import {
 } from "./database/db"
 import { QUEUE_URL, sesNewsletterClient, sqsClient } from "./aws/awsHelper"
 import logger from "../lib/core/logger"
+import { createQueue } from "./utils/queue"
 // @ts-ignore
 import { randomUUID } from "node:crypto"
 
@@ -64,12 +65,22 @@ async function sendMail(siteId: string, dbId: string) {
     const contents = await getNewsletterContent(dbId)
     const sendEmailRequests = preparePayload(contents, siteId)
     const batchId = contents["v:email-id"]
-    for (const prepared of sendEmailRequests) {
-        const result = await sendSingleMail(prepared, dbId, siteId, batchId)
-        if (result?.errorMessage) {
-            return result
-        }
-    }
+
+    const RATE_LIMIT = Number(process.env.RATE_LIMIT) || 20
+    const q = createQueue({ rateLimit: RATE_LIMIT })
+
+    sendEmailRequests.forEach(prepared => {
+        q.addToQueue(
+            () => sendSingleMail(prepared, dbId, siteId, batchId),
+            prepared.request.Destination?.ToAddresses?.join(",")
+        )
+    })
+
+    const results = await new Promise((resolve) => {
+        q.onFinish((stats) => resolve(stats))
+    })
+    log.info({ results }, "Finished queue")
+
     return { batchId }
 }
 
