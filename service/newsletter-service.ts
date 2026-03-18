@@ -101,7 +101,7 @@ export async function validateAndSend(message: Message) {
 
         const result = await sendMail(siteId, message.Body)
 
-        if (result.batchId) {
+        if ("batchId" in result) {
             await sqsClient().send(
                 new DeleteMessageCommand({
                     QueueUrl: QUEUE_URL.NEWSLETTER,
