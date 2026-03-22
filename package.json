@@ -17,7 +17,7 @@
         "test:coverage": "vitest --coverage",
         "test:watch": "vitest --watch",
         "test:ui": "vitest --ui",
-        "bump": "npm version patch"
+        "bump": "npm version patch && git push --tags"
     },
     "dependencies": {
         "@aws-sdk/client-sesv2": "^3.914.0",
