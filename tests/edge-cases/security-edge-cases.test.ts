@@ -47,8 +47,7 @@ describe('Security Edge Cases', () => {
         expect(response.status).toBe(200)
         expect(addNewsletterToQueue).toHaveBeenCalledWith(
           expect.any(Object),
-          maliciousSiteId, // Passed as-is, service should sanitize
-          null
+          maliciousSiteId // Passed as-is, service should sanitize
         )
       }
     })

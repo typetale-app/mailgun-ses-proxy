@@ -87,14 +87,14 @@ export async function processNewsletterEmailEvents(response: ReceiveMessageComma
             try {
                 const result = parseNotificationEvent(msg.MessageId, msg.Body)
                 await saveNewsletterNotification(result)
+                const command = new DeleteMessageCommand({
+                    QueueUrl: QUEUE_URL.NEWSLETTER_NOTIFICATION,
+                    ReceiptHandle: msg.ReceiptHandle,
+                })
+                await sqsClient().send(command)
             } catch (e) {
-                log.error(e)
+                log.error(e, `[processNewsletterEmailEvents] Failed to process message ${msg.MessageId}`)
             }
-            const command = new DeleteMessageCommand({
-                QueueUrl: QUEUE_URL.NEWSLETTER_NOTIFICATION,
-                ReceiptHandle: msg.ReceiptHandle,
-            })
-            await sqsClient().send(command)
         }
     }
 }

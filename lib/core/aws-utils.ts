@@ -2,6 +2,7 @@ import { SendEmailRequest } from "@aws-sdk/client-sesv2"
 import { replaceAll } from "./common"
 import { MailgunEvents, MailgunRecipientVariables } from "@/types/default"
 import { Prisma } from "../generated"
+import { MailgunMessage } from "@/types/mailgun"
 
 function doSubstitution(inputText: string, substitutions: MailgunRecipientVariables[0]) {
     for (const key of Object.keys(substitutions)) {

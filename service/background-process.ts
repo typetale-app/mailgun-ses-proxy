@@ -25,7 +25,11 @@ export async function processNewsletterQueue() {
         let { Messages } = await sqsClient().send(command)
         if (Messages && Messages.length > 0) {
             for (const message of Messages) {
-                await validateAndSend(message)
+                try {
+                    await validateAndSend(message)
+                } catch (e) {
+                    log.error(e, `[processNewsletterQueue] Failed to process message ${message.MessageId}`)
+                }
             }
         }
     }
@@ -45,8 +49,12 @@ export async function processNewsletterEventsQueue() {
     }
     const command = new ReceiveMessageCommand(input)
     while (true) {
-        let response = await sqsClient().send(command)
-        if (response.Messages) await processNewsletterEmailEvents(response)
+        try {
+            let response = await sqsClient().send(command)
+            if (response.Messages) await processNewsletterEmailEvents(response)
+        } catch (e) {
+            log.error(e, "[processNewsletterEventsQueue] Error processing newsletter events")
+        }
     }
 }
 
@@ -64,7 +72,11 @@ export async function processSystemEventsQueue() {
     }
     const command = new ReceiveMessageCommand(input)
     while (true) {
-        let response = await sqsClient().send(command)
-        if (response.Messages) await processSystemEmailEvents(response)
+        try {
+            let response = await sqsClient().send(command)
+            if (response.Messages) await processSystemEmailEvents(response)
+        } catch (e) {
+            log.error(e, "[processSystemEventsQueue] Error processing system events")
+        }
     }
 }

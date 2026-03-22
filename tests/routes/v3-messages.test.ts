@@ -47,8 +47,7 @@ describe('/v3/[siteId]/messages POST', () => {
         text: 'Test text',
         'v:email-id': 'batch-123',
       }),
-      'site-123',
-      null
+      'site-123'
     )
   })
 
@@ -82,8 +81,7 @@ describe('/v3/[siteId]/messages POST', () => {
       expect.objectContaining({
         'v:email-id': 'no-batch-id-provided',
       }),
-      'site-123',
-      null
+      'site-123'
     )
   })
 
@@ -196,8 +194,7 @@ describe('/v3/[siteId]/messages POST', () => {
         to: ['recipient1@example.com', 'recipient2@example.com'],
         'v:email-id': 'batch-456',
       }),
-      'site-123',
-      null
+      'site-123'
     )
   })
 })

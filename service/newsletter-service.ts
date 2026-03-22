@@ -18,7 +18,7 @@ import { randomUUID } from "node:crypto"
 const log = logger.child({ service: "service:newsletter-service" })
 const PERSIST_NEWSLETTER_FORMATTED_CONTENTS = shouldPersistNewsletterFormattedContents()
 
-export async function addNewsletterToQueue(message: any, siteId: string, auth: any) {
+export async function addNewsletterToQueue(message: MailgunMessage, siteId: string) {
     if (!message) throw new Error("Message body is empty or invalid.")
     log.debug({ message }, "sending message body to SQS")
 
@@ -63,6 +63,9 @@ async function sendSingleMail(prepared: PreparedEmail, dbId: string, siteId: str
 
 async function sendMail(siteId: string, dbId: string) {
     const contents = await getNewsletterContent(dbId)
+    if (!contents) {
+        throw new Error(`Newsletter content not found for batch id: ${dbId}`)
+    }
     const sendEmailRequests = preparePayload(contents, siteId)
     const batchId = contents["v:email-id"]
 
@@ -84,9 +87,20 @@ async function sendMail(siteId: string, dbId: string) {
     return { batchId }
 }
 
+async function deleteMessage(receiptHandle?: string) {
+    if (!receiptHandle) return
+    await sqsClient().send(
+        new DeleteMessageCommand({
+            QueueUrl: QUEUE_URL.NEWSLETTER,
+            ReceiptHandle: receiptHandle,
+        })
+    )
+}
+
 export async function validateAndSend(message: Message) {
     if (!message.MessageAttributes || !message.Body) {
-        log.error({ message: safeStringify(message) }, "invalid message")
+        log.error({ message: safeStringify(message) }, "invalid message, deleting from queue")
+        await deleteMessage(message.ReceiptHandle)
         return
     }
 
@@ -94,7 +108,8 @@ export async function validateAndSend(message: Message) {
     const from = message.MessageAttributes["from"]?.StringValue
 
     if (!siteId || !from) {
-        log.error({ message: safeStringify(message) }, "missing required message attributes")
+        log.error({ message: safeStringify(message) }, "missing required message attributes, deleting from queue")
+        await deleteMessage(message.ReceiptHandle)
         return
     }
 

@@ -137,6 +137,7 @@ describe('/v1/send POST', () => {
       success: false,
       error: 'Validation Error',
       message: "Validation failed: 'to': Invalid input: expected array, received undefined",
+      timestamp: expect.any(String),
     })
     expect(sendSystemMail).not.toHaveBeenCalled()
   })
@@ -163,6 +164,7 @@ describe('/v1/send POST', () => {
       success: false,
       error: 'Validation Error',
       message: "Validation failed: 'to': Too small: expected array to have >=1 items",
+      timestamp: expect.any(String),
     })
   })
 

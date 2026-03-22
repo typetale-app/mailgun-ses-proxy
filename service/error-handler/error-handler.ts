@@ -7,6 +7,7 @@ export interface ErrorResponse {
     error: string
     message: string
     status: number
+    context?: string
 }
 
 export class ErrorHandler {
@@ -19,6 +20,7 @@ export class ErrorHandler {
                 error: error.name || 'Error',
                 message: error.message,
                 status: 500,
+                context,
             }
         }
 
@@ -27,6 +29,7 @@ export class ErrorHandler {
             error: 'Unknown Error',
             message: 'An unexpected error occurred',
             status: 500,
+            context,
         }
     }
 

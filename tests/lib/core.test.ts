@@ -70,6 +70,7 @@ describe('Core Library', () => {
           success: false,
           error: 'Validation Error',
           message: errorMessage,
+          timestamp: expect.any(String),
         })
       })
     })
@@ -298,6 +299,7 @@ describe('Core Library', () => {
           error: 'TestError',
           message: 'Test error message',
           status: 500,
+          context: 'test-context',
         })
       })
 
@@ -314,6 +316,7 @@ describe('Core Library', () => {
           error: 'Error',
           message: 'Test error message',
           status: 500,
+          context: 'test-context',
         })
       })
 
@@ -330,6 +333,7 @@ describe('Core Library', () => {
           error: 'Unknown Error',
           message: 'An unexpected error occurred',
           status: 500,
+          context: 'test-context',
         })
       })
 
@@ -346,6 +350,7 @@ describe('Core Library', () => {
           error: 'Unknown Error',
           message: 'An unexpected error occurred',
           status: 500,
+          context: 'test-context',
         })
       })
 
@@ -362,6 +367,7 @@ describe('Core Library', () => {
           error: 'Unknown Error',
           message: 'An unexpected error occurred',
           status: 500,
+          context: 'test-context',
         })
       })
 
@@ -378,6 +384,7 @@ describe('Core Library', () => {
           error: 'Unknown Error',
           message: 'An unexpected error occurred',
           status: 500,
+          context: 'test-context',
         })
       })
     })

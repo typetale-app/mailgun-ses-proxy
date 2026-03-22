@@ -28,6 +28,7 @@ export interface MailgunMessage {
   
     /** Custom variables to be included in the email. */
     'v:my-var'?: any;
+    'v:email-id'?: string;
     [variable: `v:${string}`]: any;
   
     /** Tag to be used for tracking. */

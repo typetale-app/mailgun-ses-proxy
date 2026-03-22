@@ -14,7 +14,7 @@ function getEnvBoolean(name: string, fallback = false) {
 const PERSIST_NEWSLETTER_FORMATTED_CONTENTS = getEnvBoolean("PERSIST_NEWSLETTER_FORMATTED_CONTENTS", false)
 
 export async function createNewsletterBatchEntry(siteId: string, message: MailgunMessage) {
-    const batchId = message["v:email-id"]
+    const batchId = message["v:email-id"] || "no-batch-id-provided"
     const contents = safeStringify(message)
     const fromEmail = message.from
     return prisma.newsletterBatch.create({
@@ -47,8 +47,8 @@ export async function createNewsletterEntry(
 }
 
 export async function createNewsletterErrorEntry(
-    messageId: string,
     errorMessage: string,
+    siteId: string,
     batchId: string,
     toEmail: string,
     recipientData: string,

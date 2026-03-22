@@ -138,6 +138,8 @@ export class ApiResponse {
                 success: false,
                 error: ERROR_TYPES.VALIDATION_ERROR,
                 message,
+                timestamp: new Date().toISOString(),
+                ...(details && { details }),
             },
             { status: HTTP_STATUS.BAD_REQUEST }
         )

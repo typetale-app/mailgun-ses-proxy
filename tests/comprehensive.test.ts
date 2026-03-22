@@ -52,8 +52,7 @@ describe("Comprehensive API Test Suite", () => {
                     html: "<h1>Newsletter Content</h1>",
                     "v:email-id": "batch-123",
                 }),
-                "site-123",
-                null
+                "site-123"
             )
         })
 
@@ -242,6 +241,7 @@ describe("Comprehensive API Test Suite", () => {
                 success: false,
                 error: "Validation Error",
                 message: "Validation failed",
+                timestamp: expect.any(String),
             })
         })
 
@@ -255,6 +255,7 @@ describe("Comprehensive API Test Suite", () => {
                 error: "TestError",
                 message: "Test error",
                 status: 500,
+                context: "test-context",
             })
 
             const unknownError = "string error"
@@ -264,6 +265,7 @@ describe("Comprehensive API Test Suite", () => {
                 error: "Unknown Error",
                 message: "An unexpected error occurred",
                 status: 500,
+                context: "test-context",
             })
         })
     })

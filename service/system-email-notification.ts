@@ -13,14 +13,14 @@ export async function processSystemEmailEvents(response: ReceiveMessageCommandOu
             try {
                 const result = parseNotificationEvent(msg.MessageId, msg.Body)
                 await saveSystemEmailEvent(result)
+                const command = new DeleteMessageCommand({
+                    QueueUrl: QUEUE_URL.SYSTEM_NOTIFICATION,
+                    ReceiptHandle: msg.ReceiptHandle,
+                })
+                await sqsClient().send(command)
             } catch (e) {
-                log.error(e)
+                log.error(e, `[processSystemEmailEvents] Failed to process message ${msg.MessageId}`)
             }
-            const command = new DeleteMessageCommand({
-                QueueUrl: QUEUE_URL.SYSTEM_NOTIFICATION,
-                ReceiptHandle: msg.ReceiptHandle,
-            })
-            await sqsClient().send(command)
         }
     }
 }
