@@ -1,45 +1,45 @@
 {
-  "name": "mailgun-to-ses-proxy",
-  "version": "0.1.1",
-  "private": true,
-  "scripts": {
-    "dev": "nodemon",
-    "next:build": "next build --webpack",
-    "docker:build": "docker build -t mailgun-to-ses-proxy .",
-    "build": "prisma generate && next build --webpack && tsc --project tsconfig.server.json",
-    "start": "NODE_ENV=production prisma migrate deploy && node dist/server.js",
-    "lint": "next lint",
-    "db:migrate:dev": "prisma migrate dev",
-    "db:migrate": "prisma migrate deploy",
-    "db:generate": "prisma generate",
-    "test": "vitest",
-    "test:run": "vitest --run",
-    "test:coverage": "vitest --coverage",
-    "test:watch": "vitest --watch",
-    "test:ui": "vitest --ui",
-    "bump": "npm version patch"
-  },
-  "dependencies": {
-    "@aws-sdk/client-sesv2": "^3.914.0",
-    "@aws-sdk/client-sqs": "^3.914.0",
-    "@prisma/client": "^6.18.0",
-    "next": "^16.0.7",
-    "pino": "^10.1.0",
-    "prisma": "^6.18.0",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "zod": "^4.1.12"
-  },
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4.1.16",
-    "@types/node": "^24.9.1",
-    "@types/react": "^19.2.2",
-    "@types/react-dom": "^19.2.2",
-    "nodemon": "^3.1.9",
-    "pino-pretty": "^13.1.2",
-    "tailwindcss": "^4.1.16",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.9.3",
-    "vitest": "^4.0.1"
-  }
+    "name": "mailgun-to-ses-proxy",
+    "version": "2.0.13",
+    "private": true,
+    "scripts": {
+        "dev": "nodemon",
+        "next:build": "next build --webpack",
+        "docker:build": "docker build -t mailgun-to-ses-proxy .",
+        "build": "prisma generate && next build --webpack && tsc --project tsconfig.server.json",
+        "start": "NODE_ENV=production prisma migrate deploy && node dist/server.js",
+        "lint": "next lint",
+        "db:migrate:dev": "prisma migrate dev",
+        "db:migrate": "prisma migrate deploy",
+        "db:generate": "prisma generate",
+        "test": "vitest",
+        "test:run": "vitest --run",
+        "test:coverage": "vitest --coverage",
+        "test:watch": "vitest --watch",
+        "test:ui": "vitest --ui",
+        "bump": "npm version patch"
+    },
+    "dependencies": {
+        "@aws-sdk/client-sesv2": "^3.914.0",
+        "@aws-sdk/client-sqs": "^3.914.0",
+        "@prisma/client": "^6.18.0",
+        "next": "^16.0.7",
+        "pino": "^10.1.0",
+        "prisma": "^6.18.0",
+        "react": "^19.2.0",
+        "react-dom": "^19.2.0",
+        "zod": "^4.1.12"
+    },
+    "devDependencies": {
+        "@tailwindcss/postcss": "^4.1.16",
+        "@types/node": "^24.9.1",
+        "@types/react": "^19.2.2",
+        "@types/react-dom": "^19.2.2",
+        "nodemon": "^3.1.9",
+        "pino-pretty": "^13.1.2",
+        "tailwindcss": "^4.1.16",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.9.3",
+        "vitest": "^4.0.1"
+    }
 }
