@@ -1,26 +1,30 @@
-ARG NODE_VERSION=20
-
-FROM node:${NODE_VERSION}-alpine
+FROM oven/bun:1-alpine
 
 ENV NODE_ENV=production
 
-RUN mkdir -p /home/node/app/node_modules && chown -R node:node /home/node/app
+# Install openssl for Prisma compatibility in Alpine
+USER root
+RUN apk add --no-cache openssl
 
-WORKDIR /home/node/app
-COPY --chown=node:node package*.json ./
+WORKDIR /app
 
-USER node
+# Ensure correct permissions for the bun user
+RUN chown -R bun:bun /app
 
-RUN npm install
+USER bun
 
-# Copy the rest of the source files into the image.
-COPY --chown=node:node . .
+# Copy package files and install dependencies
+COPY --chown=bun:bun package.json package-lock.json* bun.lockb* ./
+RUN bun install
 
-# build code
-RUN npm run build
+# Copy the rest of the application code
+COPY --chown=bun:bun . .
 
-# Expose the port that the application listens on.
+# Run build scripts (Prisma generate, Next build, and custom server build)
+RUN bun run build
+
+# Expose the application port
 EXPOSE 8080
 
-# Run the application.
-CMD ["npm","run","start"]
+# Run the application using bun
+CMD ["bun", "run", "start"]
