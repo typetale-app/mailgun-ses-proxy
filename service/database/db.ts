@@ -1,9 +1,8 @@
 import { MailgunMessage } from "@/types/mailgun"
 import { NotificationEvent } from "../../lib/core/aws-utils"
 import { safeStringify } from "../../lib/core/common"
-import { PrismaClient } from "../../lib/generated"
-
-export const prisma = new PrismaClient()
+import { prisma } from "../../lib/database"
+export { prisma }
 
 function getEnvBoolean(name: string, fallback = false) {
     const raw = process.env[name]

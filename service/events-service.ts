@@ -1,5 +1,5 @@
 import { EventsProps, QueryParams } from "@/types/default"
-import { prisma, saveNewsletterNotification } from "./database/db"
+import { getNewsletterMessage, prisma, saveNewsletterNotification } from "./database/db"
 import { formatAsMailgunEvent, parseNotificationEvent } from "../lib/core/aws-utils"
 import { DeleteMessageCommand, ReceiveMessageCommandOutput } from "@aws-sdk/client-sqs"
 import logger from "../lib/core/logger"
@@ -86,7 +86,10 @@ export async function processNewsletterEmailEvents(response: ReceiveMessageComma
         if (msg.Body && msg.MessageId) {
             try {
                 const result = parseNotificationEvent(msg.MessageId, msg.Body)
-                await saveNewsletterNotification(result)
+                const message = await getNewsletterMessage(msg.MessageId)
+                if (message) {
+                    await saveNewsletterNotification(result)
+                }
                 const command = new DeleteMessageCommand({
                     QueueUrl: QUEUE_URL.NEWSLETTER_NOTIFICATION,
                     ReceiptHandle: msg.ReceiptHandle,
