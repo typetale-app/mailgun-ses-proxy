@@ -6,8 +6,9 @@ function resolveLogLevel() {
     return process.env.NODE_ENV != "production" ? "debug" : "info"
 }
 
-const logger = pino({
-    level: resolveLogLevel()
-});
+const logger = pino(
+    { level: resolveLogLevel() },
+    pino.destination({ sync: true })
+);
 
 export default logger.child({ app: "mailgun-ses-proxy" });
