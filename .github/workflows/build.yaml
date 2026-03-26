@@ -41,3 +41,5 @@ jobs:
                   tags: |
                       ghcr.io/${{ github.repository }}:${{ env.RELEASE_VERSION }}
                       ghcr.io/${{ github.repository }}:latest
+                  cache-from: type=gha
+                  cache-to: type=gha,mode=max
