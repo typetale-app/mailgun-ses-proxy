@@ -21,7 +21,7 @@ RUN bun install
 COPY --chown=bun:bun . .
 
 # Run build scripts (Prisma generate, Next build, and custom server build)
-RUN bun run build
+RUN DATABASE_URL=mysql://localhost:3306/dummy bun run build
 
 # Expose the application port
 EXPOSE 8080
