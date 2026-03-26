@@ -27,4 +27,4 @@ RUN bun run build
 EXPOSE 8080
 
 # Run the application using bun
-CMD ["bun", "run", "start"]
+CMD ["bun", "run", "start:bun"]

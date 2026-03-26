@@ -8,6 +8,7 @@
         "docker:build": "docker build -t mailgun-to-ses-proxy .",
         "build": "prisma generate && next build --webpack && tsc --project tsconfig.server.json",
         "start": "NODE_ENV=production prisma migrate deploy && node dist/server.js",
+        "start:bun": "NODE_ENV=production prisma migrate deploy && bun dist/server.js",
         "lint": "next lint",
         "db:migrate:dev": "prisma migrate dev",
         "db:migrate": "prisma migrate deploy",
