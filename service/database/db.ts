@@ -81,9 +81,9 @@ export function saveNewsletterNotification(event: NotificationEvent) {
     })
 }
 
-export async function getNewsletterContent(id: string) {
+export async function getNewsletterContent(newsletterBatchId: string) {
     const result = await prisma.newsletterBatch.findUnique({
-        where: { id },
+        where: { id: newsletterBatchId },
         select: { contents: true }
     })
     return result && result.contents ? JSON.parse(result.contents) : null

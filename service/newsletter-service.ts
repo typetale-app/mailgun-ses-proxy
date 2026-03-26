@@ -1,7 +1,11 @@
-import { preparePayload, PreparedEmail } from "../lib/core/aws-utils"
-import { safeStringify } from "../lib/core/common"
+import { MailgunMessage } from "@/types/mailgun"
 import { SendEmailCommand } from "@aws-sdk/client-sesv2"
 import { DeleteMessageCommand, Message, SendMessageCommand } from "@aws-sdk/client-sqs"
+import { randomUUID } from "node:crypto"
+import { PreparedEmail, preparePayload } from "../lib/core/aws-utils"
+import { safeStringify } from "../lib/core/common"
+import logger from "../lib/core/logger"
+import { QUEUE_URL, sesNewsletterClient, sqsClient } from "./aws/awsHelper"
 import {
     createNewsletterBatchEntry,
     createNewsletterEntry,
@@ -9,12 +13,7 @@ import {
     getNewsletterContent,
     shouldPersistNewsletterFormattedContents,
 } from "./database/db"
-import { QUEUE_URL, sesNewsletterClient, sqsClient } from "./aws/awsHelper"
-import logger from "../lib/core/logger"
 import { createQueue } from "./utils/queue"
-import { MailgunMessage } from "@/types/mailgun"
-// @ts-ignore
-import { randomUUID } from "node:crypto"
 
 const log = logger.child({ service: "service:newsletter-service" })
 const PERSIST_NEWSLETTER_FORMATTED_CONTENTS = shouldPersistNewsletterFormattedContents()
@@ -43,49 +42,49 @@ export async function addNewsletterToQueue(message: MailgunMessage, siteId: stri
     return { batchId: message["v:email-id"], messageId: response.MessageId }
 }
 
-async function sendSingleMail(prepared: PreparedEmail, dbId: string, siteId: string, batchId: string) {
+async function sendSingleMail(prepared: PreparedEmail, newsletterBatchId: string, siteId: string, emailBatchId: string) {
     const { request, recipientVariables } = prepared
-    const toEmail = request.Destination?.ToAddresses?.join("") || ""
+    const toEmail = request.Destination?.ToAddresses?.join() || ""
     const recipientData = JSON.stringify({ toEmail, variables: recipientVariables })
     const formatedContents = PERSIST_NEWSLETTER_FORMATTED_CONTENTS ? safeStringify(request) : ""
     try {
         const cmd = new SendEmailCommand(request)
         const resp = await sesNewsletterClient().send(cmd)
         const messageId = resp.MessageId as string
-        await createNewsletterEntry(messageId, dbId, toEmail, recipientData, formatedContents)
+        await createNewsletterEntry(messageId, newsletterBatchId, toEmail, recipientData, formatedContents)
         log.info({ messageId, siteId }, "email sent")
     } catch (e) {
         const tempMessageId = randomUUID()
         log.error({ err: e, tempMessageId, siteId }, "SES send failed, recording error entry")
-        await createNewsletterErrorEntry(tempMessageId, String(e), batchId, toEmail, recipientData, formatedContents)
+        await createNewsletterErrorEntry(tempMessageId, String(e), emailBatchId, toEmail, recipientData, formatedContents)
         return { errorMessage: e }
     }
 }
 
-async function sendMail(siteId: string, dbId: string) {
-    const contents = await getNewsletterContent(dbId)
+async function sendMail(siteId: string, newsletterBatchId: string) {
+    const contents = await getNewsletterContent(newsletterBatchId)
     if (!contents) {
-        throw new Error(`Newsletter content not found for batch id: ${dbId}`)
+        throw new Error(`Newsletter content not found for batch id: ${newsletterBatchId}`)
     }
     const sendEmailRequests = preparePayload(contents, siteId)
-    const batchId = contents["v:email-id"]
+    const emailBatchId = contents["v:email-id"]
 
     const RATE_LIMIT = Number(process.env.RATE_LIMIT) || 20
-    const q = createQueue({ rateLimit: RATE_LIMIT })
+    const MAX_CONCURRENT = Number(process.env.MAX_CONCURRENT) || 100
+    const q = createQueue({ rateLimit: RATE_LIMIT, maxConcurrent: MAX_CONCURRENT })
 
+    log.info({ emailCount: sendEmailRequests.length }, "Adding items to queue")
     sendEmailRequests.forEach(prepared => {
         q.addToQueue(
-            () => sendSingleMail(prepared, dbId, siteId, batchId),
-            prepared.request.Destination?.ToAddresses?.join(",")
+            () => sendSingleMail(prepared, newsletterBatchId, siteId, emailBatchId),
+            emailBatchId
         )
     })
 
-    const results = await new Promise((resolve) => {
-        q.onFinish((stats) => resolve(stats))
-    })
+    const results = await q.waitUntilFinished()
     log.info({ results }, "Finished queue")
 
-    return { batchId }
+    return { emailBatchId }
 }
 
 async function deleteMessage(receiptHandle?: string) {
