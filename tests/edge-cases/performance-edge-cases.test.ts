@@ -479,7 +479,7 @@ describe('Performance Edge Cases', () => {
         } as unknown as Request
 
         vi.mocked(addNewsletterToQueue).mockImplementation(async (data) => {
-          const op = data.operation
+          const op = (data as any).operation
           operationCounts.set(op, (operationCounts.get(op) || 0) + 1)
           
           return {

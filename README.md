@@ -119,6 +119,10 @@ API_KEY="your-secure-api-key-here"
 # Server Configuration (optional)
 PORT=3000
 NODE_ENV=production
+LOG_LEVEL=info
+
+# Newsletter persistence behavior (optional)
+PERSIST_NEWSLETTER_FORMATTED_CONTENTS=false
 ```
 
 ## Installation & Setup
@@ -237,6 +241,16 @@ The application uses structured logging with Pino. Logs include:
 -   Error tracking
 -   Performance metrics
 
+Available log levels can be configured with `LOG_LEVEL`:
+
+-   `fatal`
+-   `error`
+-   `warn`
+-   `info`
+-   `debug`
+-   `trace`
+-   `silent`
+
 ### Database Monitoring
 
 Monitor email delivery through the database tables:
@@ -245,6 +259,20 @@ Monitor email delivery through the database tables:
 -   `NewsletterMessages` - Individual email messages
 -   `NewsletterErrors` - Failed email attempts
 -   `NewsletterNotifications` - SES delivery events
+
+### Newsletter HTML Persistence
+
+By default, newsletter messages store recipient substitution data in `recipientData` and rely on `NewsletterBatch.contents` as the source HTML/template.
+
+If you need the legacy behavior that persists the fully rendered SES payload for each newsletter message and error row, enable:
+
+```bash
+PERSIST_NEWSLETTER_FORMATTED_CONTENTS=true
+```
+
+When enabled, the application stores the rendered `SendEmailRequest` JSON in `NewsletterMessages.formatedContents` and `NewsletterErrors.formatedContents`.
+
+This legacy mode can consume a large amount of database storage on high-volume newsletter sends, because the full rendered HTML payload is duplicated for every recipient and every error row. Keep `PERSIST_NEWSLETTER_FORMATTED_CONTENTS=false` unless you explicitly need per-message payload persistence for auditing or debugging.
 
 ## Troubleshooting
 

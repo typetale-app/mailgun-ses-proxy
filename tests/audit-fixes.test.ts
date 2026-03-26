@@ -63,14 +63,13 @@ describe('Issue 2: createNewsletterErrorEntry parameter order', () => {
 
     const { createNewsletterErrorEntry } = await import('@/service/database/db')
 
+    const messageId = 'temp-msg-id-123'
     const errorMessage = 'SES rate limit exceeded'
-    const siteId = 'site-123'
     const batchId = 'batch-456'
-    const payload = {
-      Destination: { ToAddresses: ['test@example.com'] },
-    } as any
+    const toEmail = 'test@example.com'
+    const recipientData = '{}'
 
-    await createNewsletterErrorEntry(errorMessage, siteId, batchId, payload)
+    await createNewsletterErrorEntry(messageId, errorMessage, batchId, toEmail, recipientData)
 
     const createArg = mockCreate.mock.calls[0][0]
     // The error column should contain the actual error message
@@ -100,6 +99,7 @@ describe('Issue 3: sendMail null content handling', () => {
       createNewsletterBatchEntry: vi.fn(),
       createNewsletterEntry: vi.fn(),
       createNewsletterErrorEntry: vi.fn(),
+      shouldPersistNewsletterFormattedContents: vi.fn().mockReturnValue(false),
     }))
     vi.doMock('@/lib/core/logger', () => ({
       default: {
@@ -148,6 +148,7 @@ describe('Issue 4: Invalid messages deleted from SQS', () => {
       createNewsletterBatchEntry: vi.fn(),
       createNewsletterEntry: vi.fn(),
       createNewsletterErrorEntry: vi.fn(),
+      shouldPersistNewsletterFormattedContents: vi.fn().mockReturnValue(false),
     }))
     vi.doMock('@/lib/core/logger', () => ({
       default: {
@@ -185,6 +186,7 @@ describe('Issue 4: Invalid messages deleted from SQS', () => {
       createNewsletterBatchEntry: vi.fn(),
       createNewsletterEntry: vi.fn(),
       createNewsletterErrorEntry: vi.fn(),
+      shouldPersistNewsletterFormattedContents: vi.fn().mockReturnValue(false),
     }))
     vi.doMock('@/lib/core/logger', () => ({
       default: {

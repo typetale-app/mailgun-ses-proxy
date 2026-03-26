@@ -29,8 +29,8 @@ describe('/stats/[action] POST', () => {
         status: 'ok',
         data: {
           forRange: {
-            gte: new Date(requestBody.from).toISOString(),
-            lte: new Date(requestBody.to).toISOString(),
+            gte: new Date(requestBody.from),
+            lte: new Date(requestBody.to),
           },
           message: 'newsletter usage',
           count: 150,
@@ -46,7 +46,7 @@ describe('/stats/[action] POST', () => {
 
       // Assert
       expect(response.status).toBe(200)
-      expect(result).toEqual(mockUsageResult)
+      expect(result).toEqual(JSON.parse(JSON.stringify(mockUsageResult)))
       expect(getNewsletterUsage).toHaveBeenCalledWith(requestBody)
     })
 
@@ -120,8 +120,8 @@ describe('/stats/[action] POST', () => {
         status: 'ok',
         data: {
           forRange: {
-            gte: new Date(requestBody.from).toISOString(),
-            lte: new Date(requestBody.to).toISOString(),
+            gte: new Date(requestBody.from),
+            lte: new Date(requestBody.to),
           },
           message: 'newsletter usage',
           count: 0,
@@ -137,7 +137,7 @@ describe('/stats/[action] POST', () => {
 
       // Assert
       expect(response.status).toBe(200)
-      expect(result).toEqual(mockUsageResult)
+      expect(result).toEqual(JSON.parse(JSON.stringify(mockUsageResult)))
       expect(result.data.count).toBe(0)
     })
   })
@@ -258,8 +258,8 @@ describe('/stats/[action] POST', () => {
         status: 'ok',
         data: {
           forRange: {
-            gte: new Date(requestBody.from).toISOString(),
-            lte: new Date(requestBody.to).toISOString(),
+            gte: new Date(requestBody.from),
+            lte: new Date(requestBody.to),
           },
           message: 'newsletter usage',
           count: 999999,
@@ -275,7 +275,7 @@ describe('/stats/[action] POST', () => {
 
       // Assert
       expect(response.status).toBe(200)
-      expect(result).toEqual(mockUsageResult)
+      expect(result).toEqual(JSON.parse(JSON.stringify(mockUsageResult)))
     })
 
     it('should handle special characters in siteId', async () => {
@@ -296,8 +296,8 @@ describe('/stats/[action] POST', () => {
         status: 'ok',
         data: {
           forRange: {
-            gte: new Date(requestBody.from).toISOString(),
-            lte: new Date(requestBody.to).toISOString(),
+            gte: new Date(requestBody.from),
+            lte: new Date(requestBody.to),
           },
           message: 'newsletter usage',
           count: 42,
@@ -313,7 +313,7 @@ describe('/stats/[action] POST', () => {
 
       // Assert
       expect(response.status).toBe(200)
-      expect(result).toEqual(mockUsageResult)
+      expect(result).toEqual(JSON.parse(JSON.stringify(mockUsageResult)))
       expect(getNewsletterUsage).toHaveBeenCalledWith(requestBody)
     })
   })

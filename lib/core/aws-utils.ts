@@ -15,59 +15,61 @@ function doSubstitution(inputText: string, substitutions: MailgunRecipientVariab
     return inputText
 }
 
-export function preparePayload(input: MailgunMessage, siteId: string): SendEmailRequest[] {
-    const recipientVariablesStr = input["recipient-variables"] as unknown as string
-    const recepientVariables = (typeof recipientVariablesStr === 'string' 
-        ? JSON.parse(recipientVariablesStr) 
-        : recipientVariablesStr) as MailgunRecipientVariables
+export interface PreparedEmail {
+    request: SendEmailRequest
+    recipientVariables: MailgunRecipientVariables[0]
+}
 
+export function preparePayload(input: any, siteId: string): PreparedEmail[] {
+    const recepientVariables = JSON.parse(input["recipient-variables"]) as MailgunRecipientVariables
     const receivers = Array.isArray(input.to) ? input.to : [input.to]
-    const result = receivers.map((receiverEmail: string) => ({
-        ConfigurationSetName: process.env.NEWSLETTER_CONFIGURATION_SET_NAME,
-        FromEmailAddress: input.from,
-        Destination: { ToAddresses: [receiverEmail] },
-        ReplyToAddresses: [input["h:Reply-To"] || input.from],
-        Content: {
-            Simple: {
-                Subject: {
-                    Data: input.subject,
-                },
-                Body: {
-                    Text: {
-                        Data: doSubstitution(input.text || "", recepientVariables[receiverEmail] || {}),
+    const result = receivers.map((receiverEmail: string | number) => ({
+        request: {
+            ConfigurationSetName: process.env.NEWSLETTER_CONFIGURATION_SET_NAME,
+            FromEmailAddress: input.from,
+            Destination: { ToAddresses: [receiverEmail] },
+            ReplyToAddresses: [input["h:Reply-To"]],
+            Content: {
+                Simple: {
+                    Subject: {
+                        Data: input.subject,
                     },
-                    Html: {
-                        Data: doSubstitution(input.html || "", recepientVariables[receiverEmail] || {}),
+                    Body: {
+                        Text: {
+                            Data: doSubstitution(input.text, recepientVariables[receiverEmail]),
+                        },
+                        Html: {
+                            Data: doSubstitution(input.html, recepientVariables[receiverEmail]),
+                        },
                     },
-                },
-                Headers: [
-                    {
-                        Name: "List-Unsubscribe-Post",
-                        Value: "List-Unsubscribe=One-Click",
-                    },
-                    ...(recepientVariables[receiverEmail]?.unsubscribe_url ? [
+                    Headers: [
+                        {
+                            Name: "List-Unsubscribe-Post",
+                            Value: "List-Unsubscribe=One-Click",
+                        },
                         {
                             Name: "List-Unsubscribe",
                             Value: `<${recepientVariables[receiverEmail].unsubscribe_url}>`,
-                        }
-                    ] : []),
-                ],
+                        },
+                    ],
+                },
             },
+            EmailTags: [
+                {
+                    Name: "siteId",
+                    Value: siteId,
+                },
+                {
+                    Name: "batchId",
+                    Value: input["v:email-id"],
+                },
+                {
+                    Name: "ghost-email",
+                    Value: "true",
+                },
+            ],
         },
-        EmailTags: [
-            {
-                Name: "siteId",
-                Value: siteId,
-            },
-            {
-                Name: "batchId",
-                Value: (input["v:email-id"] as string) || "no-batch-id",
-            },
-            {
-                Name: "ghost-email",
-                Value: "true",
-            },
-        ],
+        recipientVariables: recepientVariables[receiverEmail],
     }))
     return result
 }
@@ -93,17 +95,25 @@ export interface NotificationEvent {
     raw: any
 }
 
+function normalizeEventTimestamp(value: string | Date | undefined, fallback = new Date()) {
+    if (!value) return fallback
+    if (value instanceof Date) return value
+
+    const parsed = new Date(value)
+    return Number.isNaN(parsed.getTime()) ? fallback : parsed
+}
+
 export function parseNotificationEvent(messageId: string, inputEvent: string): NotificationEvent {
     const event = JSON.parse(inputEvent) as {
         eventType: keyof typeof awsToMailgunType
-        mail: { messageId: string, timestamp: Date }
-        open?: { timestamp: Date }
+        mail: { messageId: string, timestamp?: string | Date }
+        open?: { timestamp?: string | Date }
     }
     return {
         notificationId: messageId,
         type: String(awsToMailgunType[event.eventType]).toLocaleLowerCase(),
-        messageId: event.mail.messageId,
-        timestamp: event.open?.timestamp || event.mail.timestamp || new Date(),
+        messageId: event.mail.messageId.replace(/^<|>$/g, "").split("@")[0],
+        timestamp: normalizeEventTimestamp(event.open?.timestamp || event.mail.timestamp, new Date()),
         raw: inputEvent,
     }
 }
