@@ -6,9 +6,9 @@ import { prisma } from '@/lib/database';
 // Bypassing any global mocks if they exist
 vi.unmock('@/lib/database');
 
-const runPrismaTests = process.env.PRISMA_HEALTH_CHECK === 'true';
+const runTests = process.env.runPrismaTests === 'true';
 
-describe.skipIf(!runPrismaTests)('Prisma ORM Connection Test', () => {
+describe.skipIf(!runTests)('Prisma ORM Connection Test', () => {
     it('should successfully connect to the database and query the NewsletterBatch table', async () => {
         try {
             // This will throw if the connection fails or if the schema is out of sync
