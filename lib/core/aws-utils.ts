@@ -1,8 +1,7 @@
-import { SendEmailRequest } from "@aws-sdk/client-sesv2"
-import { replaceAll } from "./common"
 import { MailgunEvents, MailgunRecipientVariables } from "@/types/default"
+import { SendEmailRequest } from "@aws-sdk/client-sesv2"
 import { Prisma } from "../generated"
-import { MailgunMessage } from "@/types/mailgun"
+import { replaceAll } from "./common"
 
 function doSubstitution(inputText: string, substitutions: MailgunRecipientVariables[0]) {
     for (const key of Object.keys(substitutions)) {
@@ -104,14 +103,24 @@ function normalizeEventTimestamp(value: string | Date | undefined, fallback = ne
 }
 
 export function parseNotificationEvent(messageId: string, inputEvent: string): NotificationEvent {
-    const event = JSON.parse(inputEvent) as {
+    let parsed = JSON.parse(inputEvent)
+
+    // Handle SNS wrapped notifications
+    if (parsed.Type === "Notification") {
+        parsed = JSON.parse(parsed.Message)
+    }
+
+    const event = parsed as {
         eventType: keyof typeof awsToMailgunType
         mail: { messageId: string, timestamp?: string | Date }
         open?: { timestamp?: string | Date }
     }
+
+    const mailgunType = awsToMailgunType[event.eventType] || "unknown"
+
     return {
         notificationId: messageId,
-        type: String(awsToMailgunType[event.eventType]).toLocaleLowerCase(),
+        type: String(mailgunType).toLocaleLowerCase(),
         messageId: event.mail.messageId.replace(/^<|>$/g, "").split("@")[0],
         timestamp: normalizeEventTimestamp(event.open?.timestamp || event.mail.timestamp, new Date()),
         raw: inputEvent,
