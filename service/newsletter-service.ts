@@ -1,3 +1,4 @@
+import { TaskQueue } from "@/lib/task-queue"
 import { MailgunMessage } from "@/types/mailgun"
 import { SendEmailCommand } from "@aws-sdk/client-sesv2"
 import { DeleteMessageCommand, Message, SendMessageCommand } from "@aws-sdk/client-sqs"
@@ -14,7 +15,6 @@ import {
     getNewsletterContent,
     shouldPersistNewsletterFormattedContents,
 } from "./database/db"
-import { createQueue } from "./utils/queue"
 
 const log = logger.child({ service: "service:newsletter-service" })
 const PERSIST_FORMATTED_CONTENTS = shouldPersistNewsletterFormattedContents()
@@ -98,10 +98,10 @@ async function processBatch(siteId: string, newsletterBatchId: string) {
 
     const rateLimit = Number(process.env.RATE_LIMIT) || 20
     const maxConcurrent = Number(process.env.MAX_CONCURRENT) || 100
-    const queue = createQueue({ rateLimit, maxConcurrent })
+    const queue = new TaskQueue({ rateLimit, maxConcurrent })
 
     for (const prepared of emails) {
-        queue.addToQueue(
+        queue.enqueue(
             () => sendSingleEmail(prepared, newsletterBatchId, siteId, emailBatchId),
             emailBatchId
         )
