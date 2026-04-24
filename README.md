@@ -16,13 +16,13 @@ Ghost natively integrates with Mailgun for sending newsletters. This proxy allow
 
 ## Features
 
--   **Mailgun API Compatibility**: Mimics Mailgun's v3 API endpoints for seamless Ghost integration
--   **Amazon SES Backend**: Routes all email sending through AWS SES for better deliverability and cost-effectiveness
--   **Queue-based Processing**: Uses AWS SQS for reliable email queue management
--   **Event Tracking**: Comprehensive email event tracking (delivery, bounce, complaint, etc.)
--   **Database Logging**: Stores email batches, messages, and events in MySQL database
--   **Health Monitoring**: Built-in health check endpoints for monitoring
--   **Docker Support**: Containerized deployment with Docker Compose
+- **Mailgun API Compatibility**: Mimics Mailgun's v3 API endpoints for seamless Ghost integration
+- **Amazon SES Backend**: Routes all email sending through AWS SES for better deliverability and cost-effectiveness
+- **Queue-based Processing**: Uses AWS SQS for reliable email queue management
+- **Event Tracking**: Comprehensive email event tracking (delivery, bounce, complaint, etc.)
+- **Database Logging**: Stores email batches, messages, and events in MySQL database
+- **Health Monitoring**: Built-in health check endpoints for monitoring
+- **Docker Support**: Containerized deployment with Docker Compose
 
 ## Architecture
 
@@ -38,10 +38,10 @@ The system consists of several components:
 
 Before setting up the server, ensure you have:
 
--   **Node.js** (v18 or higher)
--   **MySQL** database
--   **AWS Account** with SES and SQS access
--   **Docker** (optional, for containerized deployment)
+- **Node.js** (v18 or higher)
+- **MySQL** database
+- **AWS Account** with SES and SQS access
+- **Docker** (optional, for containerized deployment)
 
 ## AWS Configuration
 
@@ -49,8 +49,8 @@ Before setting up the server, ensure you have:
 
 1. **Verify your sending domain** in AWS SES console
 2. **Create Configuration Sets** for tracking:
-    - `newsletter-configuration-set` (for newsletter emails)
-    - `system-configuration-set` (for transactional emails)
+    - `newsletter-config-set` (for newsletter emails)
+    - `system-config-set` (for transactional emails)
 3. **Set up SNS topics** for event notifications (optional but recommended)
 4. **Request production access** if sending to unverified email addresses
 
@@ -58,11 +58,23 @@ Before setting up the server, ensure you have:
 
 Create the following SQS queues:
 
--   `newsletter-queue` - For processing newsletter emails
--   `newsletter-notification-queue` - For SES event notifications
--   `system-notification-queue` - For transactional email notifications
+- `newsletter-buffer-queue` - For buffering newsletter emails for processing
+- `newsletter-events-queue` - For SES event notifications from newsletter emails
+- `system-events-queue` - For SES event notifications from transactional emails
 
-### 3. IAM Permissions
+### 3. Connect SNS to SQS
+
+For each SNS topic, create a subscription to the corresponding SQS queue:
+
+1. Go to SNS Console
+2. Select the topic
+3. Click "Create subscription"
+4. Set protocol to "Amazon SQS"
+5. Set the SQS queue
+
+> We have documented the process in detail on our blog: [Connect SNS to SQS](https://typetale.ontypetale.com/from-ses-to-sqs-orchestrating-ses-event-pipelines/)
+
+### 4. IAM Permissions
 
 Your AWS credentials need the following permissions:
 
@@ -92,6 +104,7 @@ Create a `.env` file in the project root with the following variables:
 
 ```bash
 # AWS Configuration
+# Create these in the AWS IAM console: Users -> [Your User] -> Security credentials -> Access keys
 AWS_ACCESS_KEY_ID=your_aws_access_key
 AWS_SECRET_ACCESS_KEY=your_aws_secret_key
 
@@ -99,13 +112,17 @@ AWS_SECRET_ACCESS_KEY=your_aws_secret_key
 DATABASE_URL="mysql://username:password@localhost:3306/mailgun_ses_db"
 
 # SES Configuration
+# The region code (e.g. us-east-1) shown in the top right of the AWS Console
 SES_REGION="us-east-1"
 SES_TRANSACTIONAL_REGION="us-east-1"
-TRANSACTIONAL_CONFIGURATION_SET_NAME=system-configuration-set
-NEWSLETTER_CONFIGURATION_SET_NAME=newsletter-configuration-set
+# Found in the AWS SES console under Configuration -> Configuration sets
+TRANSACTIONAL_CONFIGURATION_SET_NAME=system-config-set
+NEWSLETTER_CONFIGURATION_SET_NAME=newsletter-config-set
 
 # SQS Configuration
+# The region code (e.g. us-east-1) shown in the top right of the AWS Console
 SQS_REGION="us-east-1"
+# Found in the AWS SQS console: Queues -> [Select Queue] -> Details -> URL
 NEWSLETTER_QUEUE="https://sqs.us-east-1.amazonaws.com/123456789012/newsletter-queue"
 NEWSLETTER_NOTIFICATION_QUEUE="https://sqs.us-east-1.amazonaws.com/123456789012/newsletter-notification-queue"
 TRANSACTIONAL_NOTIFICATION_QUEUE="https://sqs.us-east-1.amazonaws.com/123456789012/system-notification-queue"
@@ -207,20 +224,20 @@ mail__from=noreply@your-verified-ses-domain.com
 
 ### Newsletter Endpoints
 
--   `POST /v3/{siteId}/messages` - Send newsletter emails (Mailgun compatible)
--   `GET /healthcheck` - Health check endpoint
--   `GET /stats/{action}` - Email statistics and analytics
+- `POST /v3/{siteId}/messages` - Send newsletter emails (Mailgun compatible)
+- `GET /healthcheck` - Health check endpoint
+- `GET /stats/{action}` - Email statistics and analytics
 
 ### Supported Mailgun Parameters
 
 The proxy supports the following Mailgun parameters:
 
--   `from` - Sender email address
--   `to` - Recipient email address(es)
--   `subject` - Email subject
--   `html` - HTML email content
--   `text` - Plain text email content
--   `v:email-id` - Batch ID for tracking
+- `from` - Sender email address
+- `to` - Recipient email address(es)
+- `subject` - Email subject
+- `html` - HTML email content
+- `text` - Plain text email content
+- `v:email-id` - Batch ID for tracking
 
 ## Monitoring & Logging
 
@@ -236,29 +253,29 @@ curl http://your-server:3000/healthcheck
 
 The application uses structured logging with Pino. Logs include:
 
--   Email sending events
--   Queue processing status
--   Error tracking
--   Performance metrics
+- Email sending events
+- Queue processing status
+- Error tracking
+- Performance metrics
 
 Available log levels can be configured with `LOG_LEVEL`:
 
--   `fatal`
--   `error`
--   `warn`
--   `info`
--   `debug`
--   `trace`
--   `silent`
+- `fatal`
+- `error`
+- `warn`
+- `info`
+- `debug`
+- `trace`
+- `silent`
 
 ### Database Monitoring
 
 Monitor email delivery through the database tables:
 
--   `NewsletterBatch` - Email batch information
--   `NewsletterMessages` - Individual email messages
--   `NewsletterErrors` - Failed email attempts
--   `NewsletterNotifications` - SES delivery events
+- `NewsletterBatch` - Email batch information
+- `NewsletterMessages` - Individual email messages
+- `NewsletterErrors` - Failed email attempts
+- `NewsletterNotifications` - SES delivery events
 
 ### Newsletter HTML Persistence
 
@@ -279,18 +296,15 @@ This legacy mode can consume a large amount of database storage on high-volume n
 ### Common Issues
 
 1. **SES Sandbox Mode**
-
     - Ensure you've requested production access in AWS SES
     - Verify all recipient domains in sandbox mode
 
 2. **Queue Processing Issues**
-
     - Check SQS queue visibility timeout settings
     - Verify AWS credentials and permissions
     - Monitor dead letter queues for failed messages
 
 3. **Database Connection**
-
     - Ensure MySQL is running and accessible
     - Verify DATABASE_URL format and credentials
     - Check if migrations have been applied
@@ -323,21 +337,23 @@ curl -X POST http://localhost:3000/v3/your-site-id/messages \
 
 ## Performance Considerations
 
--   **Queue Processing**: The system processes emails asynchronously through SQS
--   **Rate Limits**: Respects AWS SES sending limits automatically
--   **Batch Processing**: Handles large newsletter batches efficiently
--   **Error Handling**: Implements retry logic for failed deliveries
+- **Queue Processing**: The system processes emails asynchronously through SQS
+- **Rate Limits**: Respects AWS SES sending limits automatically
+- **Batch Processing**: Handles large newsletter batches efficiently
+- **Error Handling**: Implements retry logic for failed deliveries
 
 ## Security
 
--   Use strong API keys for authentication
--   Implement proper IAM roles with minimal required permissions
--   Keep AWS credentials secure and rotate regularly
--   Use HTTPS in production deployments
--   Regularly update dependencies for security patches
+- Use strong API keys for authentication
+- Implement proper IAM roles with minimal required permissions
+- Keep AWS credentials secure and rotate regularly
+- Use HTTPS in production deployments
+- Regularly update dependencies for security patches
 
 ## Adopted by
+
 The Mailgun-to-SES proxy is currently being used in production at [typetale.app](https://typetale.app) for sending both newsletter and transactional emails. It has proven to be a stable and scalable solution that meets all the service requirements.
- 
+
 ## License
-AGPL-3 
+
+AGPL-3
