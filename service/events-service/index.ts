@@ -26,8 +26,9 @@ export async function processNewsletterEmailEvents(response: ReceiveMessageComma
                 const message = await getNewsletterMessage(result.messageId)
                 if (!message) {
                     throw new Error(`Message ${result.messageId} not found in DB, skipping deletion to retry later`)
+                } else {
+                    await saveNewsletterNotification(result)
                 }
-                await saveNewsletterNotification(result)
                 const command = new DeleteMessageCommand({
                     QueueUrl: QUEUE_URL.NEWSLETTER_NOTIFICATION,
                     ReceiptHandle: msg.ReceiptHandle,

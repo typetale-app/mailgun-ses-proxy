@@ -24,7 +24,7 @@ async function fetchAnalyticsEvent(req: NextRequest, { params }: pathParam) {
         const queryParams = validateQueryParams(req.nextUrl.searchParams)
         log.debug({ queryParams, siteId, slug }, "query params")
         const events = await fetchAnalyticsEvents(queryParams, siteId, req.url)
-        log.info({ count: events.items.length, siteId, slug }, "analytics events count")
+        log.debug({ count: events.items.length, siteId, slug }, "analytics events count")
         return Response.json(events, { status: 200 })
     } catch (e) {
         log.error(e, 'error when fetching analytics events')
