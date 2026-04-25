@@ -1,6 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Database, Globe, Info, Save, Settings } from "lucide-react"
 
 interface Setting {
     key: string
@@ -11,155 +13,72 @@ interface Setting {
 }
 
 export default function SettingsPage() {
-    const [settings, setSettings] = useState<Setting[]>([])
-    const [loading, setLoading] = useState(true)
-    const [saving, setSaving] = useState(false)
-    const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null)
-    const [dirty, setDirty] = useState(false)
-
-    useEffect(() => {
-        fetch("/dashboard/api/settings")
-            .then((r) => r.json())
-            .then((data) => setSettings(data.settings || []))
-            .catch(console.error)
-            .finally(() => setLoading(false))
-    }, [])
-
-    const showToast = (message: string, type: "success" | "error") => {
-        setToast({ message, type })
-        setTimeout(() => setToast(null), 3000)
-    }
-
-    const handleChange = (key: string, value: string) => {
-        setSettings((prev) =>
-            prev.map((s) => (s.key === key ? { ...s, value, source: "database" as const } : s))
-        )
-        setDirty(true)
-    }
-
-    const handleToggle = (key: string) => {
-        setSettings((prev) =>
-            prev.map((s) => {
-                if (s.key === key) {
-                    const newVal = s.value === "true" || s.value === "1" ? "false" : "true"
-                    return { ...s, value: newVal, source: "database" as const }
-                }
-                return s
-            })
-        )
-        setDirty(true)
-    }
-
-    const handleSave = async () => {
-        setSaving(true)
-        try {
-            const res = await fetch("/dashboard/api/settings", {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    settings: settings.map((s) => ({ key: s.key, value: s.value })),
-                }),
-            })
-            const data = await res.json()
-            if (res.ok) {
-                showToast(`✅ Settings saved (${data.updated} updated)`, "success")
-                setDirty(false)
-                // Reload to get fresh source info
-                const fresh = await fetch("/dashboard/api/settings")
-                const freshData = await fresh.json()
-                setSettings(freshData.settings || [])
-            } else {
-                showToast(`❌ ${data.error || "Failed to save"}`, "error")
-            }
-        } catch {
-            showToast("❌ Network error", "error")
-        } finally {
-            setSaving(false)
-        }
-    }
-
-    if (loading) {
-        return <div className="dash-loading"><div className="dash-spinner" /></div>
-    }
-
     return (
-        <div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+        <div className="space-y-8 animate-in fade-in duration-500">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="dash-page-title">Settings</h1>
-                    <p className="dash-page-desc" style={{ marginBottom: 0 }}>
-                        Manage application configuration. Changes are stored in the database and override environment variables.
-                    </p>
+                    <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+                    <p className="text-muted-foreground">Manage application configuration and behavior overrides.</p>
                 </div>
-                <button
-                    className="dash-btn dash-btn-primary"
-                    disabled={!dirty || saving}
-                    onClick={handleSave}
-                >
-                    {saving ? "Saving..." : "Save Changes"}
-                </button>
+                <Button disabled={true} className="md:w-auto w-full">
+                    <Save className="mr-2 h-4 w-4" />
+                    Save Changes
+                </Button>
             </div>
 
-            <div className="dash-section">
-                <div className="dash-section-header">
-                    <div className="dash-section-title">⚙️ Application Configuration</div>
+            <div className="grid gap-8 lg:grid-cols-3">
+                <div className="lg:col-span-2 space-y-6">
+                    <Card className="border-muted/50">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Settings className="h-5 w-5 text-primary" />
+                                Application Configuration
+                            </CardTitle>
+                            <CardDescription>
+                                These values override environment variables when stored in the database.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="text-muted-foreground space-y-0 divide-y border rounded-lg overflow-hidden bg-card/50 p-8 mx-4 mb-4">
+                            <span className="italic">Coming soon...</span>
+                        </CardContent>
+                    </Card>
                 </div>
-                <div className="dash-settings-list">
-                    {settings.map((setting) => (
-                        <div key={setting.key} className="dash-settings-row">
-                            <div className="dash-settings-label">
-                                <div className="dash-settings-key">{setting.label}</div>
-                                <div className="dash-settings-desc" style={{ fontFamily: "monospace" }}>{setting.key}</div>
+
+                <div className="space-y-6">
+                    <Card className="border-muted/50 bg-primary/5">
+                        <CardHeader>
+                            <CardTitle className="text-sm flex items-center gap-2">
+                                <Info className="h-4 w-4 text-primary" />
+                                Configuration Sources
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="text-xs space-y-4 text-muted-foreground leading-relaxed">
+                            <div className="flex gap-3">
+                                <Database className="h-4 w-4 text-primary shrink-0" />
+                                <div>
+                                    <span className="font-bold text-foreground">Database (DB)</span>
+                                    <p>
+                                        Overrides environment variables. These values are permanent across deployments.
+                                    </p>
+                                </div>
                             </div>
-
-                            {setting.type === "boolean" ? (
-                                <label className="dash-toggle">
-                                    <input
-                                        type="checkbox"
-                                        checked={setting.value === "true" || setting.value === "1"}
-                                        onChange={() => handleToggle(setting.key)}
-                                    />
-                                    <span className="dash-toggle-slider" />
-                                </label>
-                            ) : (
-                                <input
-                                    className="dash-settings-input"
-                                    value={setting.value}
-                                    onChange={(e) => handleChange(setting.key, e.target.value)}
-                                    placeholder={`Enter ${setting.label.toLowerCase()}`}
-                                />
-                            )}
-
-                            <span className={`dash-settings-source ${setting.source === "database" ? "dash-settings-source-db" : "dash-settings-source-env"}`}>
-                                {setting.source === "database" ? "DB" : "ENV"}
-                            </span>
-                        </div>
-                    ))}
+                            <div className="flex gap-3">
+                                <Globe className="h-4 w-4 text-blue-500 shrink-0" />
+                                <div>
+                                    <span className="font-bold text-foreground">Environment (ENV)</span>
+                                    <p>
+                                        Read from system environment or .env file. Saving a change promotes it to the
+                                        Database.
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="p-3 bg-card border rounded-md italic">
+                                Note: Some security-critical settings may require a server restart to take full effect.
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
             </div>
-
-            <div className="dash-section" style={{ padding: 20 }}>
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-                    <span style={{ fontSize: 20 }}>💡</span>
-                    <div>
-                        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--dash-text)", marginBottom: 4 }}>
-                            About Settings Sources
-                        </div>
-                        <div style={{ fontSize: 12, color: "var(--dash-text-dim)", lineHeight: 1.6 }}>
-                            <strong style={{ color: "var(--dash-success)" }}>DB</strong> — Value stored in database, overrides the environment variable.<br />
-                            <strong style={{ color: "var(--dash-info)" }}>ENV</strong> — Value read from the environment variable. Saving will store it in the database.<br />
-                            <em>Note: Some settings may require a server restart to take effect.</em>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Toast */}
-            {toast && (
-                <div className={`dash-toast ${toast.type === "success" ? "dash-toast-success" : "dash-toast-error"}`}>
-                    {toast.message}
-                </div>
-            )}
         </div>
     )
 }

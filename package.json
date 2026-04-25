@@ -26,25 +26,33 @@
         "@aws-sdk/client-sqs": "^3.914.0",
         "@prisma/adapter-mariadb": "^7.5.0",
         "@prisma/client": "^7.5.0",
+        "clsx": "^2.1.1",
         "dotenv": "^17.3.1",
+        "lucide-react": "^1.11.0",
         "mariadb": "^3.5.2",
-        "next": "^16.0.7",
+        "next": "^16.2.4",
         "pino": "^10.1.0",
-        "prisma": "^7.5.0",
+        "postcss": "^8.5.10",
+        "prisma": "^7.8.0",
         "react": "^19.2.0",
         "react-dom": "^19.2.0",
+        "tailwind-merge": "^3.5.0",
         "zod": "^4.1.12"
     },
     "devDependencies": {
-        "@tailwindcss/postcss": "^4.1.16",
+        "@tailwindcss/postcss": "^4.2.4",
         "@types/node": "^24.9.1",
         "@types/react": "^19.2.2",
         "@types/react-dom": "^19.2.2",
         "nodemon": "^3.1.9",
         "pino-pretty": "^13.1.2",
-        "tailwindcss": "^4.1.16",
+        "tailwindcss": "^4.2.4",
         "ts-node": "^10.9.2",
         "typescript": "^5.9.3",
         "vitest": "^4.0.1"
+    },
+    "overrides": {
+        "postcss": "^8.5.10",
+        "@hono/node-server": "^2.0.0"
     }
 }

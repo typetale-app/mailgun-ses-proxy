@@ -15,12 +15,12 @@ services:
             - 2368:2368
         environment:
             database__client: mysql
-            database__connection__host: 10.0.0.4
+            database__connection__host: 192.168.1.25
             database__connection__user: root
             database__connection__password: random_password
             database__connection__database: ghost
-            bulkEmail__mailgun__apiKey: 02cbe748-0c67-40c4-ad31-3ae962eb72e7
-            bulkEmail__mailgun__baseUrl: http://10.0.0.4:3000/v3
+            bulkEmail__mailgun__apiKey: 6e7fde2d-54e0-40d3-bfa3-4a5117219c20
+            bulkEmail__mailgun__baseUrl: http://192.168.1.25:3000/v3
             bulkEmail__mailgun__domain: local.ontypetale.com
             hostSettings__managedEmail__sendingDomain: test.ontypetale.com
             mail__from: noreply@test.ontypetale.com

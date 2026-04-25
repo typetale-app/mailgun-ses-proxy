@@ -1,6 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { cn, formatRelativeTime } from "@/lib/utils"
+import { AlertCircle, ArrowUpRight, CheckCircle2, Inbox, Loader2, Mail, ShieldAlert, TrendingUp } from "lucide-react"
+import { useEffect, useState } from "react"
 
 interface StatsData {
     overview: {
@@ -42,123 +48,188 @@ export default function DashboardPage() {
 
     if (loading) {
         return (
-            <div className="dash-loading">
-                <div className="dash-spinner" />
+            <div className="flex flex-1 items-center justify-center min-h-[400px]">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
         )
     }
 
     if (!stats) {
         return (
-            <div className="dash-empty">
-                <div className="dash-empty-icon">⚠️</div>
-                <div className="dash-empty-text">Failed to load dashboard stats</div>
-            </div>
+            <Card className="border-destructive/50 bg-destructive/5">
+                <CardContent className="flex flex-col items-center justify-center py-10 text-center">
+                    <AlertCircle className="h-10 w-10 text-destructive mb-4" />
+                    <CardTitle className="text-destructive">Failed to load dashboard stats</CardTitle>
+                    <CardDescription>Please check your connection and try again.</CardDescription>
+                    <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>
+                        Retry
+                    </Button>
+                </CardContent>
+            </Card>
         )
     }
 
     const statCards = [
-        { label: "Total Batches", value: stats.overview.totalBatches.toLocaleString(), className: "dash-stat-accent" },
-        { label: "Messages Sent", value: stats.overview.totalMessages.toLocaleString(), className: "dash-stat-accent" },
-        { label: "Delivery Rate", value: `${stats.overview.deliveryRate}%`, className: "dash-stat-success" },
-        { label: "Total Errors", value: stats.overview.totalErrors.toLocaleString(), className: "dash-stat-error" },
-        { label: "Bounced", value: stats.overview.totalBounced.toLocaleString(), className: "dash-stat-warning" },
-        { label: "Complaints", value: stats.overview.totalComplaints.toLocaleString(), className: "dash-stat-error" },
-    ]
-
-    const activityCards = [
-        { label: "Today", value: stats.activity.today },
-        { label: "This Week", value: stats.activity.thisWeek },
-        { label: "This Month", value: stats.activity.thisMonth },
+        {
+            label: "Total Batches",
+            value: stats.overview.totalBatches.toLocaleString(),
+            icon: Inbox,
+            color: "text-primary",
+        },
+        {
+            label: "Messages Sent",
+            value: stats.overview.totalMessages.toLocaleString(),
+            icon: Mail,
+            color: "text-primary",
+        },
+        {
+            label: "Delivery Rate",
+            value: `${stats.overview.deliveryRate}%`,
+            icon: CheckCircle2,
+            color: "text-emerald-500",
+        },
+        {
+            label: "Total Errors",
+            value: stats.overview.totalErrors.toLocaleString(),
+            icon: AlertCircle,
+            color: "text-destructive",
+        },
+        {
+            label: "Bounced",
+            value: stats.overview.totalBounced.toLocaleString(),
+            icon: ShieldAlert,
+            color: "text-orange-500",
+        },
+        {
+            label: "Complaints",
+            value: stats.overview.totalComplaints.toLocaleString(),
+            icon: TrendingUp,
+            color: "text-destructive",
+        },
     ]
 
     return (
-        <div>
-            <h1 className="dash-page-title">Dashboard Overview</h1>
-            <p className="dash-page-desc">Monitor your email sending infrastructure at a glance</p>
+        <div className="space-y-8 animate-in fade-in duration-500">
+            <div>
+                <h1 className="text-3xl font-bold tracking-tight">Dashboard Overview</h1>
+                <p className="text-muted-foreground">Monitor your email sending infrastructure at a glance</p>
+            </div>
 
             {/* Stat Cards */}
-            <div className="dash-stats-grid">
-                {statCards.map((card) => (
-                    <div key={card.label} className="dash-stat-card">
-                        <div className="dash-stat-label">{card.label}</div>
-                        <div className={`dash-stat-value ${card.className}`}>{card.value}</div>
-                    </div>
-                ))}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {statCards.map((card) => {
+                    const Icon = card.icon
+                    return (
+                        <Card key={card.label} className="transition-all hover:shadow-md border-muted/50">
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium text-muted-foreground">
+                                    {card.label}
+                                </CardTitle>
+                                <Icon className={cn("h-4 w-4", card.color)} />
+                            </CardHeader>
+                            <CardContent>
+                                <div className={cn("text-2xl font-bold", card.color)}>{card.value}</div>
+                            </CardContent>
+                        </Card>
+                    )
+                })}
             </div>
 
             {/* Activity Summary */}
-            <div className="dash-section">
-                <div className="dash-section-header">
-                    <div className="dash-section-title">📊 Sending Activity</div>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 0 }}>
-                    {activityCards.map((a) => (
-                        <div key={a.label} style={{ padding: "20px", textAlign: "center", borderRight: "1px solid var(--dash-border)" }}>
-                            <div className="dash-stat-label">{a.label}</div>
-                            <div className="dash-stat-value" style={{ fontSize: 24 }}>{a.value.toLocaleString()}</div>
-                            <div className="dash-stat-sub">messages sent</div>
+            <Card className="border-muted/50">
+                <CardHeader>
+                    <CardTitle className="text-lg">Sending Activity</CardTitle>
+                    <CardDescription>Daily, weekly and monthly distribution</CardDescription>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x border rounded-lg bg-card/50">
+                    <div className="flex flex-col items-center justify-center py-6">
+                        <div className="text-sm text-muted-foreground mb-1">Today</div>
+                        <div className="text-3xl font-bold">{stats.activity.today.toLocaleString()}</div>
+                        <div className="text-[10px] text-muted-foreground mt-1 uppercase tracking-widest font-bold">
+                            messages
                         </div>
-                    ))}
-                </div>
-            </div>
+                    </div>
+                    <div className="flex flex-col items-center justify-center py-6">
+                        <div className="text-sm text-muted-foreground mb-1">This Week</div>
+                        <div className="text-3xl font-bold">{stats.activity.thisWeek.toLocaleString()}</div>
+                        <div className="text-[10px] text-muted-foreground mt-1 uppercase tracking-widest font-bold">
+                            messages
+                        </div>
+                    </div>
+                    <div className="flex flex-col items-center justify-center py-6">
+                        <div className="text-sm text-muted-foreground mb-1">This Month</div>
+                        <div className="text-3xl font-bold">{stats.activity.thisMonth.toLocaleString()}</div>
+                        <div className="text-[10px] text-muted-foreground mt-1 uppercase tracking-widest font-bold">
+                            messages
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
 
             {/* Recent Batches */}
-            <div className="dash-section">
-                <div className="dash-section-header">
-                    <div className="dash-section-title">📬 Recent Batches</div>
-                    <a
-                        href="/dashboard/newsletters"
-                        className="dash-btn dash-btn-ghost"
-                        style={{ fontSize: 12, padding: "4px 12px" }}
+            <Card className="border-muted/50">
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                        <CardTitle className="text-lg">Recent Newsletter Batches</CardTitle>
+                        <CardDescription>Latest campaign activity from Ghost CMS</CardDescription>
+                    </div>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => (window.location.href = "/dashboard/newsletters")}
                     >
-                        View All →
-                    </a>
-                </div>
-                <div className="dash-section-body">
+                        View All <ArrowUpRight className="ml-2 h-3 w-3" />
+                    </Button>
+                </CardHeader>
+                <CardContent>
                     {stats.recentBatches.length === 0 ? (
-                        <div className="dash-empty">
-                            <div className="dash-empty-icon">📭</div>
-                            <div className="dash-empty-text">No newsletter batches yet</div>
+                        <div className="flex flex-col items-center justify-center py-10 text-center opacity-50">
+                            <Mail className="h-10 w-10 mb-4" />
+                            <p>No newsletter batches yet</p>
                         </div>
                     ) : (
-                        <div className="dash-table-wrap">
-                            <table className="dash-table">
-                                <thead>
-                                    <tr>
-                                        <th>Batch ID</th>
-                                        <th>Site</th>
-                                        <th>From</th>
-                                        <th>Messages</th>
-                                        <th>Errors</th>
-                                        <th>Created</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {stats.recentBatches.map((batch) => (
-                                        <tr key={batch.id}>
-                                            <td className="dash-table-mono">{batch.batchId.slice(0, 16)}…</td>
-                                            <td>{batch.siteId}</td>
-                                            <td>{batch.fromEmail.length > 30 ? batch.fromEmail.slice(0, 30) + "…" : batch.fromEmail}</td>
-                                            <td>
-                                                <span className="dash-badge dash-badge-delivery">{batch.messageCount}</span>
-                                            </td>
-                                            <td>
-                                                {batch.errorCount > 0 ? (
-                                                    <span className="dash-badge dash-badge-bounce">{batch.errorCount}</span>
-                                                ) : (
-                                                    <span style={{ color: "var(--dash-text-dim)" }}>—</span>
-                                                )}
-                                            </td>
-                                            <td>{new Date(batch.created).toLocaleString()}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Batch ID</TableHead>
+                                    <TableHead>Site</TableHead>
+                                    <TableHead>From Email</TableHead>
+                                    <TableHead className="text-center">Messages</TableHead>
+                                    <TableHead className="text-center">Errors</TableHead>
+                                    <TableHead className="text-right">Created</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {stats.recentBatches.map((batch) => (
+                                    <TableRow key={batch.id}>
+                                        <TableCell className="font-mono text-xs text-muted-foreground">
+                                            {batch.batchId.slice(0, 16)}…
+                                        </TableCell>
+                                        <TableCell className="font-medium">{batch.siteId}</TableCell>
+                                        <TableCell className="max-w-[200px] truncate">{batch.fromEmail}</TableCell>
+                                        <TableCell className="text-center">
+                                            <Badge variant="secondary">{batch.messageCount}</Badge>
+                                        </TableCell>
+                                        <TableCell className="text-center">
+                                            {batch.errorCount > 0 ? (
+                                                <Badge variant="destructive">{batch.errorCount}</Badge>
+                                            ) : (
+                                                <span className="text-muted-foreground">—</span>
+                                            )}
+                                        </TableCell>
+                                        <TableCell
+                                            className="text-right text-xs text-muted-foreground whitespace-nowrap"
+                                            title={new Date(batch.created).toLocaleString()}
+                                        >
+                                            {formatRelativeTime(batch.created)}
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
                     )}
-                </div>
-            </div>
+                </CardContent>
+            </Card>
         </div>
     )
 }

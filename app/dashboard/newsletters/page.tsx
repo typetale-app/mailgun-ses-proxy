@@ -2,6 +2,34 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
+import { 
+    Search, 
+    ArrowUpDown, 
+    ArrowUp, 
+    ArrowDown, 
+    ChevronLeft, 
+    ChevronRight,
+    Mail,
+    Loader2
+} from "lucide-react"
+import { 
+    Card, 
+    CardContent, 
+    CardHeader, 
+    CardTitle, 
+    CardDescription 
+} from "@/components/ui/card"
+import { 
+    Table, 
+    TableBody, 
+    TableCell, 
+    TableHead, 
+    TableHeader, 
+    TableRow 
+} from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { cn, formatRelativeTime } from "@/lib/utils"
 
 interface Newsletter {
     id: string
@@ -63,9 +91,11 @@ export default function NewslettersPage() {
         }
     }
 
-    const sortIndicator = (column: string) => {
-        if (sortBy !== column) return ""
-        return sortOrder === "asc" ? " ↑" : " ↓"
+    const SortIcon = ({ column }: { column: string }) => {
+        if (sortBy !== column) return <ArrowUpDown className="ml-2 h-4 w-4 opacity-30" />
+        return sortOrder === "asc" 
+            ? <ArrowUp className="ml-2 h-4 w-4 text-primary" /> 
+            : <ArrowDown className="ml-2 h-4 w-4 text-primary" />
     }
 
     const handleSearch = (e: React.FormEvent) => {
@@ -74,132 +104,140 @@ export default function NewslettersPage() {
     }
 
     return (
-        <div>
-            <h1 className="dash-page-title">Newsletters</h1>
-            <p className="dash-page-desc">Browse all newsletter batches and their delivery status</p>
+        <div className="space-y-8 animate-in fade-in duration-500">
+            <div>
+                <h1 className="text-3xl font-bold tracking-tight">Newsletters</h1>
+                <p className="text-muted-foreground">Browse all newsletter batches and their delivery status</p>
+            </div>
 
-            <div className="dash-section">
-                <div className="dash-section-header">
-                    <div className="dash-section-title">Newsletter Batches</div>
-                    <div className="dash-toolbar">
-                        <form onSubmit={handleSearch} className="dash-search">
-                            <svg className="dash-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-                            </svg>
-                            <input
-                                className="dash-search-input"
-                                placeholder="Search by batch ID, site, or email..."
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                            />
-                        </form>
+            <Card className="border-muted/50">
+                <CardHeader className="flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0">
+                    <div>
+                        <CardTitle className="text-lg">Newsletter Batches</CardTitle>
+                        <CardDescription>Campaign history and performance</CardDescription>
                     </div>
-                </div>
+                    <form onSubmit={handleSearch} className="relative w-full md:w-80">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <input
+                            className="w-full bg-accent/50 border rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                            placeholder="Search by ID, site, or email..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                        />
+                    </form>
+                </CardHeader>
 
-                <div className="dash-section-body">
+                <CardContent>
                     {loading ? (
-                        <div className="dash-loading"><div className="dash-spinner" /></div>
+                        <div className="flex flex-1 items-center justify-center min-h-[300px]">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        </div>
                     ) : data.length === 0 ? (
-                        <div className="dash-empty">
-                            <div className="dash-empty-icon">📭</div>
-                            <div className="dash-empty-text">
-                                {search ? "No batches match your search" : "No newsletter batches found"}
-                            </div>
+                        <div className="flex flex-col items-center justify-center py-20 text-center opacity-50">
+                            <Mail className="h-10 w-10 mb-4" />
+                            <p>{search ? "No batches match your search" : "No newsletter batches found"}</p>
                         </div>
                     ) : (
-                        <div className="dash-table-wrap">
-                            <table className="dash-table">
-                                <thead>
-                                    <tr>
-                                        <th className={sortBy === "batchId" ? "sorted" : ""} onClick={() => handleSort("batchId")}>
-                                            Batch ID{sortIndicator("batchId")}
-                                        </th>
-                                        <th className={sortBy === "siteId" ? "sorted" : ""} onClick={() => handleSort("siteId")}>
-                                            Site{sortIndicator("siteId")}
-                                        </th>
-                                        <th className={sortBy === "fromEmail" ? "sorted" : ""} onClick={() => handleSort("fromEmail")}>
-                                            From{sortIndicator("fromEmail")}
-                                        </th>
-                                        <th>Messages</th>
-                                        <th>Errors</th>
-                                        <th className={sortBy === "created" ? "sorted" : ""} onClick={() => handleSort("created")}>
-                                            Created{sortIndicator("created")}
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {data.map((batch) => (
-                                        <tr
-                                            key={batch.id}
-                                            style={{ cursor: "pointer" }}
-                                            onClick={() => router.push(`/dashboard/newsletters/${batch.id}`)}
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead className="cursor-pointer select-none" onClick={() => handleSort("batchId")}>
+                                        <div className="flex items-center">Batch ID <SortIcon column="batchId" /></div>
+                                    </TableHead>
+                                    <TableHead className="cursor-pointer select-none" onClick={() => handleSort("siteId")}>
+                                        <div className="flex items-center">Site <SortIcon column="siteId" /></div>
+                                    </TableHead>
+                                    <TableHead className="cursor-pointer select-none" onClick={() => handleSort("fromEmail")}>
+                                        <div className="flex items-center">From <SortIcon column="fromEmail" /></div>
+                                    </TableHead>
+                                    <TableHead className="text-center">Messages</TableHead>
+                                    <TableHead className="text-center">Errors</TableHead>
+                                    <TableHead className="cursor-pointer select-none text-right" onClick={() => handleSort("created")}>
+                                        <div className="flex items-center justify-end">Created <SortIcon column="created" /></div>
+                                    </TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {data.map((batch) => (
+                                    <TableRow 
+                                        key={batch.id} 
+                                        className="cursor-pointer"
+                                        onClick={() => router.push(`/dashboard/newsletters/${batch.id}`)}
+                                    >
+                                        <TableCell className="font-mono text-xs text-muted-foreground">
+                                            {batch.batchId.length > 20 ? batch.batchId.slice(0, 20) + "…" : batch.batchId}
+                                        </TableCell>
+                                        <TableCell className="font-medium">{batch.siteId}</TableCell>
+                                        <TableCell className="max-w-[200px] truncate">{batch.fromEmail}</TableCell>
+                                        <TableCell className="text-center">
+                                            <Badge variant="secondary">{batch.messageCount}</Badge>
+                                        </TableCell>
+                                        <TableCell className="text-center">
+                                            {batch.errorCount > 0 ? (
+                                                <Badge variant="destructive">{batch.errorCount}</Badge>
+                                            ) : (
+                                                <span className="text-muted-foreground">—</span>
+                                            )}
+                                        </TableCell>
+                                        <TableCell 
+                                            className="text-right text-xs text-muted-foreground whitespace-nowrap"
+                                            title={new Date(batch.created).toLocaleString()}
                                         >
-                                            <td className="dash-table-mono" title={batch.batchId}>
-                                                {batch.batchId.length > 20 ? batch.batchId.slice(0, 20) + "…" : batch.batchId}
-                                            </td>
-                                            <td>{batch.siteId}</td>
-                                            <td title={batch.fromEmail}>
-                                                {batch.fromEmail.length > 30 ? batch.fromEmail.slice(0, 30) + "…" : batch.fromEmail}
-                                            </td>
-                                            <td>
-                                                <span className="dash-badge dash-badge-delivery">{batch.messageCount}</span>
-                                            </td>
-                                            <td>
-                                                {batch.errorCount > 0 ? (
-                                                    <span className="dash-badge dash-badge-bounce">{batch.errorCount}</span>
-                                                ) : (
-                                                    <span style={{ color: "var(--dash-text-dim)" }}>—</span>
-                                                )}
-                                            </td>
-                                            <td>{new Date(batch.created).toLocaleString()}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                            {formatRelativeTime(batch.created)}
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    )}
+
+                    {/* Pagination */}
+                    {pagination.totalPages > 1 && (
+                        <div className="mt-8 flex flex-col md:flex-row items-center justify-between gap-4 border-t pt-4">
+                            <div className="text-xs text-muted-foreground">
+                                Showing <span className="font-medium">{(pagination.page - 1) * pagination.limit + 1}</span> to <span className="font-medium">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> of <span className="font-medium">{pagination.total}</span> batches
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={pagination.page <= 1}
+                                    onClick={() => fetchData(pagination.page - 1)}
+                                >
+                                    <ChevronLeft className="h-4 w-4 mr-1" /> Previous
+                                </Button>
+                                <div className="flex items-center gap-1">
+                                    {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                                        const start = Math.max(1, Math.min(pagination.page - 2, pagination.totalPages - 4))
+                                        const pageNum = start + i
+                                        if (pageNum > pagination.totalPages) return null
+                                        return (
+                                            <Button
+                                                key={pageNum}
+                                                variant={pageNum === pagination.page ? "default" : "ghost"}
+                                                size="sm"
+                                                className="h-8 w-8 p-0"
+                                                onClick={() => fetchData(pageNum)}
+                                            >
+                                                {pageNum}
+                                            </Button>
+                                        )
+                                    })}
+                                </div>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={pagination.page >= pagination.totalPages}
+                                    onClick={() => fetchData(pagination.page + 1)}
+                                >
+                                    Next <ChevronRight className="h-4 w-4 ml-1" />
+                                </Button>
+                            </div>
                         </div>
                     )}
-                </div>
-
-                {/* Pagination */}
-                {pagination.totalPages > 1 && (
-                    <div className="dash-pagination">
-                        <span>
-                            Showing {(pagination.page - 1) * pagination.limit + 1}–
-                            {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
-                        </span>
-                        <div className="dash-pagination-buttons">
-                            <button
-                                className="dash-pagination-btn"
-                                disabled={pagination.page <= 1}
-                                onClick={() => fetchData(pagination.page - 1)}
-                            >
-                                ← Prev
-                            </button>
-                            {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
-                                const start = Math.max(1, Math.min(pagination.page - 2, pagination.totalPages - 4))
-                                const pageNum = start + i
-                                if (pageNum > pagination.totalPages) return null
-                                return (
-                                    <button
-                                        key={pageNum}
-                                        className={`dash-pagination-btn ${pageNum === pagination.page ? "active" : ""}`}
-                                        onClick={() => fetchData(pageNum)}
-                                    >
-                                        {pageNum}
-                                    </button>
-                                )
-                            })}
-                            <button
-                                className="dash-pagination-btn"
-                                disabled={pagination.page >= pagination.totalPages}
-                                onClick={() => fetchData(pagination.page + 1)}
-                            >
-                                Next →
-                            </button>
-                        </div>
-                    </div>
-                )}
-            </div>
+                </CardContent>
+            </Card>
         </div>
     )
 }
+

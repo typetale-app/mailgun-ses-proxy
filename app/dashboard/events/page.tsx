@@ -1,6 +1,36 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, Suspense } from "react"
+import { useSearchParams } from "next/navigation"
+import { 
+    Search, 
+    ArrowUpDown, 
+    ArrowUp, 
+    ArrowDown, 
+    ChevronLeft, 
+    ChevronRight,
+    Activity,
+    Loader2,
+    Filter
+} from "lucide-react"
+import { 
+    Card, 
+    CardContent, 
+    CardHeader, 
+    CardTitle, 
+    CardDescription 
+} from "@/components/ui/card"
+import { 
+    Table, 
+    TableBody, 
+    TableCell, 
+    TableHead, 
+    TableHeader, 
+    TableRow 
+} from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { cn, formatRelativeTime } from "@/lib/utils"
 
 interface EventItem {
     id: string
@@ -19,18 +49,13 @@ interface Pagination {
     totalPages: number
 }
 
-const badgeClass: Record<string, string> = {
-    Delivery: "dash-badge-delivery",
-    Bounce: "dash-badge-bounce",
-    Complaint: "dash-badge-complaint",
-}
-
-export default function EventsPage() {
+function EventsContent() {
+    const searchParams = useSearchParams()
     const [data, setData] = useState<EventItem[]>([])
     const [eventTypes, setEventTypes] = useState<string[]>([])
     const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 20, total: 0, totalPages: 0 })
     const [loading, setLoading] = useState(true)
-    const [search, setSearch] = useState("")
+    const [search, setSearch] = useState(searchParams.get("search") || "")
     const [typeFilter, setTypeFilter] = useState("")
     const [sortBy, setSortBy] = useState("timestamp")
     const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
@@ -71,9 +96,11 @@ export default function EventsPage() {
         }
     }
 
-    const sortIndicator = (column: string) => {
-        if (sortBy !== column) return ""
-        return sortOrder === "asc" ? " ↑" : " ↓"
+    const SortIcon = ({ column }: { column: string }) => {
+        if (sortBy !== column) return <ArrowUpDown className="ml-2 h-4 w-4 opacity-30" />
+        return sortOrder === "asc" 
+            ? <ArrowUp className="ml-2 h-4 w-4 text-primary" /> 
+            : <ArrowDown className="ml-2 h-4 w-4 text-primary" />
     }
 
     const handleSearch = (e: React.FormEvent) => {
@@ -81,131 +108,167 @@ export default function EventsPage() {
         fetchData(1)
     }
 
-    return (
-        <div>
-            <h1 className="dash-page-title">Events</h1>
-            <p className="dash-page-desc">Track email delivery notifications, bounces, and complaints</p>
+    const getBadgeVariant = (type: string) => {
+        switch (type) {
+            case "Delivery": return "success"
+            case "Bounce":
+            case "Complaint": return "destructive"
+            default: return "secondary"
+        }
+    }
 
-            <div className="dash-section">
-                <div className="dash-section-header">
-                    <div className="dash-section-title">Notification Events</div>
-                    <div className="dash-toolbar">
-                        <select
-                            className="dash-filter-select"
-                            value={typeFilter}
-                            onChange={(e) => setTypeFilter(e.target.value)}
-                        >
-                            <option value="">All Types</option>
-                            {eventTypes.map((t) => (
-                                <option key={t} value={t}>{t}</option>
-                            ))}
-                        </select>
-                        <form onSubmit={handleSearch} className="dash-search">
-                            <svg className="dash-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-                            </svg>
+    return (
+        <div className="space-y-8 animate-in fade-in duration-500">
+            <div>
+                <h1 className="text-3xl font-bold tracking-tight">Events</h1>
+                <p className="text-muted-foreground">Track email delivery notifications, bounces, and complaints</p>
+            </div>
+
+            <Card className="border-muted/50">
+                <CardHeader className="flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0">
+                    <div>
+                        <CardTitle className="text-lg">Notification Events</CardTitle>
+                        <CardDescription>Real-time delivery tracking across all providers</CardDescription>
+                    </div>
+                    <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto">
+                        <div className="relative w-full md:w-40">
+                            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <select
+                                className="w-full bg-accent/50 border rounded-lg pl-10 pr-4 py-2 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                value={typeFilter}
+                                onChange={(e) => setTypeFilter(e.target.value)}
+                            >
+                                <option value="">All Types</option>
+                                {eventTypes.map((t) => (
+                                    <option key={t} value={t}>{t}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <form onSubmit={handleSearch} className="relative w-full md:w-64">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <input
-                                className="dash-search-input"
-                                placeholder="Search by message or notification ID..."
+                                className="w-full bg-accent/50 border rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                                placeholder="Search message ID..."
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                             />
                         </form>
                     </div>
-                </div>
+                </CardHeader>
 
-                <div className="dash-section-body">
+                <CardContent>
                     {loading ? (
-                        <div className="dash-loading"><div className="dash-spinner" /></div>
+                        <div className="flex flex-1 items-center justify-center min-h-[300px]">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        </div>
                     ) : data.length === 0 ? (
-                        <div className="dash-empty">
-                            <div className="dash-empty-icon">📡</div>
-                            <div className="dash-empty-text">
-                                {search || typeFilter ? "No events match your filters" : "No notification events found"}
-                            </div>
+                        <div className="flex flex-col items-center justify-center py-20 text-center opacity-50">
+                            <Activity className="h-10 w-10 mb-4" />
+                            <p>{search || typeFilter ? "No events match your filters" : "No notification events found"}</p>
                         </div>
                     ) : (
-                        <div className="dash-table-wrap">
-                            <table className="dash-table">
-                                <thead>
-                                    <tr>
-                                        <th className={sortBy === "type" ? "sorted" : ""} onClick={() => handleSort("type")}>
-                                            Type{sortIndicator("type")}
-                                        </th>
-                                        <th>Recipient</th>
-                                        <th className={sortBy === "messageId" ? "sorted" : ""} onClick={() => handleSort("messageId")}>
-                                            Message ID{sortIndicator("messageId")}
-                                        </th>
-                                        <th>Notification ID</th>
-                                        <th className={sortBy === "timestamp" ? "sorted" : ""} onClick={() => handleSort("timestamp")}>
-                                            Timestamp{sortIndicator("timestamp")}
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {data.map((event) => (
-                                        <tr key={event.id}>
-                                            <td>
-                                                <span className={`dash-badge ${badgeClass[event.type] || "dash-badge-default"}`}>
-                                                    {event.type}
-                                                </span>
-                                            </td>
-                                            <td>{event.toEmail}</td>
-                                            <td className="dash-table-mono" title={event.messageId}>
-                                                {event.messageId.length > 24 ? event.messageId.slice(0, 24) + "…" : event.messageId}
-                                            </td>
-                                            <td className="dash-table-mono" title={event.notificationId}>
-                                                {event.notificationId.length > 20 ? event.notificationId.slice(0, 20) + "…" : event.notificationId}
-                                            </td>
-                                            <td>{new Date(event.timestamp).toLocaleString()}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead className="cursor-pointer select-none" onClick={() => handleSort("type")}>
+                                        <div className="flex items-center">Type <SortIcon column="type" /></div>
+                                    </TableHead>
+                                    <TableHead>Recipient</TableHead>
+                                    <TableHead className="cursor-pointer select-none" onClick={() => handleSort("messageId")}>
+                                        <div className="flex items-center">Message ID <SortIcon column="messageId" /></div>
+                                    </TableHead>
+                                    <TableHead>Notification ID</TableHead>
+                                    <TableHead className="cursor-pointer select-none text-right" onClick={() => handleSort("timestamp")}>
+                                        <div className="flex items-center justify-end">Timestamp <SortIcon column="timestamp" /></div>
+                                    </TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {data.map((event) => (
+                                    <TableRow key={event.id}>
+                                        <TableCell>
+                                            <Badge variant={getBadgeVariant(event.type)}>
+                                                {event.type}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="font-medium">{event.toEmail}</TableCell>
+                                        <TableCell className="font-mono text-xs text-muted-foreground max-w-[150px] truncate" title={event.messageId}>
+                                            {event.messageId}
+                                        </TableCell>
+                                        <TableCell className="font-mono text-xs text-muted-foreground max-w-[150px] truncate" title={event.notificationId}>
+                                            {event.notificationId}
+                                        </TableCell>
+                                        <TableCell 
+                                            className="text-right text-xs text-muted-foreground whitespace-nowrap"
+                                            title={new Date(event.timestamp).toLocaleString()}
+                                        >
+                                            {formatRelativeTime(event.timestamp)}
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    )}
+
+                    {/* Pagination */}
+                    {pagination.totalPages > 1 && (
+                        <div className="mt-8 flex flex-col md:flex-row items-center justify-between gap-4 border-t pt-4">
+                            <div className="text-xs text-muted-foreground">
+                                Showing <span className="font-medium">{(pagination.page - 1) * pagination.limit + 1}</span> to <span className="font-medium">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> of <span className="font-medium">{pagination.total}</span> events
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={pagination.page <= 1}
+                                    onClick={() => fetchData(pagination.page - 1)}
+                                >
+                                    <ChevronLeft className="h-4 w-4 mr-1" /> Previous
+                                </Button>
+                                <div className="flex items-center gap-1">
+                                    {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                                        const start = Math.max(1, Math.min(pagination.page - 2, pagination.totalPages - 4))
+                                        const pageNum = start + i
+                                        if (pageNum > pagination.totalPages) return null
+                                        return (
+                                            <Button
+                                                key={pageNum}
+                                                variant={pageNum === pagination.page ? "default" : "ghost"}
+                                                size="sm"
+                                                className="h-8 w-8 p-0"
+                                                onClick={() => fetchData(pageNum)}
+                                            >
+                                                {pageNum}
+                                            </Button>
+                                        )
+                                    })}
+                                </div>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={pagination.page >= pagination.totalPages}
+                                    onClick={() => fetchData(pagination.page + 1)}
+                                >
+                                    Next <ChevronRight className="h-4 w-4 ml-1" />
+                                </Button>
+                            </div>
                         </div>
                     )}
-                </div>
-
-                {/* Pagination */}
-                {pagination.totalPages > 1 && (
-                    <div className="dash-pagination">
-                        <span>
-                            Showing {(pagination.page - 1) * pagination.limit + 1}–
-                            {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
-                        </span>
-                        <div className="dash-pagination-buttons">
-                            <button
-                                className="dash-pagination-btn"
-                                disabled={pagination.page <= 1}
-                                onClick={() => fetchData(pagination.page - 1)}
-                            >
-                                ← Prev
-                            </button>
-                            {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
-                                const start = Math.max(1, Math.min(pagination.page - 2, pagination.totalPages - 4))
-                                const pageNum = start + i
-                                if (pageNum > pagination.totalPages) return null
-                                return (
-                                    <button
-                                        key={pageNum}
-                                        className={`dash-pagination-btn ${pageNum === pagination.page ? "active" : ""}`}
-                                        onClick={() => fetchData(pageNum)}
-                                    >
-                                        {pageNum}
-                                    </button>
-                                )
-                            })}
-                            <button
-                                className="dash-pagination-btn"
-                                disabled={pagination.page >= pagination.totalPages}
-                                onClick={() => fetchData(pagination.page + 1)}
-                            >
-                                Next →
-                            </button>
-                        </div>
-                    </div>
-                )}
-            </div>
+                </CardContent>
+            </Card>
         </div>
     )
 }
+
+export default function EventsPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex flex-1 items-center justify-center min-h-[400px]">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        }>
+            <EventsContent />
+        </Suspense>
+    )
+}
+
