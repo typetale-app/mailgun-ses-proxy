@@ -11,58 +11,53 @@ Mailgun-to-SES Proxy — an API server that mimics Mailgun's API endpoints while
 ## Architecture
 
 ### Entry Points
-- `server.ts` — Custom HTTP server that starts Next.js and launches background SQS queue processors
-- `proxy.ts` — Next.js middleware for API key authentication
+- `server.ts` — Custom HTTP server that starts Next.js and launches background SQS queue processors.
+- `proxy.ts` — Next.js middleware handling both API key authentication (Basic Auth) and Dashboard session authentication (JWT).
 
 ### API Routes
-- `POST /v3/[siteId]/messages` — Queues newsletter emails (Mailgun-compatible endpoint called by Ghost)
-- `POST /v1/send` — Sends transactional/system emails directly via SES (no queue)
-- `GET /v3/[siteId]/events` — Returns email events in Mailgun-compatible format
-- `GET /stats/[action]` — Email statistics
-- `GET /healthcheck` — Health check
+- `POST /v3/[siteId]/messages` — Queues newsletter emails (Mailgun-compatible endpoint called by Ghost).
+- `POST /v1/send` — Sends transactional/system emails directly via SES (direct send).
+- `GET /v3/[siteId]/events` — Returns email events in Mailgun-compatible format (paginated).
+- `GET /stats/[action]` — Email statistics dashboard API.
+- `GET /healthcheck` — Health check endpoint.
 
 ### Newsletter Sending Pipeline
-1. **Ingest** (`app/v3/[siteId]/messages/route.ts`): Ghost sends a batch → saved to `newsletterBatch` table → SQS message queued with batch DB ID
-2. **Process** (`service/background-process.ts`): `processNewsletterQueue()` polls SQS in a `while(true)` loop
-3. **Send** (`service/newsletter-service.ts`): `validateAndSend()` receives an SQS message → `sendMail()` iterates over recipients, sends each via SES, records in `newsletterMessages` table
-4. **Events** (`service/events-service/index.ts`): SES delivery/bounce/complaint notifications arrive via a separate SQS queue and are stored in `newsletterNotifications`
+1. **Ingest** (`app/v3/[siteId]/messages/route.ts`): Ghost sends a batch → saved to `newsletterBatch` table → SQS message queued with batch DB ID.
+2. **Process** (`service/background-process.ts`): Uses `startWorker` (generic SQS utility) to poll the newsletter queue.
+3. **Send** (`service/newsletter-service.ts`): `validateAndSend()` receives an SQS message → `sendMail()` iterates over recipients, sends via SES, records in `newsletterMessages` table (implements idempotency).
+4. **Events** (`service/events-service/index.ts`): SES delivery/bounce notifications processed via `handleNewsletterEmailEvent` (standardized event processor) and stored in `newsletterNotifications`.
 
-### Duplicate Send Prevention
-The newsletter queue implements a multi-layered approach to prevent duplicate sends:
+### Duplicate Send Prevention & Failsafes
+The system implements a multi-layered approach to prevent duplicates and handle failures:
 
-1. **SQS Visibility Timeout (900s)**: Set to 15 minutes to ensure the message stays invisible while a large batch is being processed. Prevents SQS from re-delivering the message during processing.
+1. **SQS Visibility Timeout (900s)**: Ensures large batches have enough time to process before SQS attempts re-delivery.
+2. **Idempotency Check**: Before every send, `checkNewsletterAlreadySent()` verifies the `(batchId, toEmail)` tuple in the DB.
+3. **Upsert for Events**: Notification events use `upsert` logic to remain idempotent on SQS re-deliveries.
+4. **Retry Limits (3)**: The generic worker and event processor automatically discard messages that exceed 3 retry attempts to prevent infinite loops.
+5. **Worker Isolation**: All background tasks use `lib/core/sqs-worker.ts` for consistent error isolation and message lifecycle management.
 
-2. **Idempotency Check**: Before sending to each recipient, `checkNewsletterAlreadySent()` queries the `newsletterMessages` table for an existing record with the same `(batchId, toEmail)`. Already-sent recipients are skipped.
-
-3. **Automatic Retry for Partial Failures**: If `sendMail()` throws (e.g. SES outage), the SQS message is NOT deleted — SQS will re-deliver it. On retry, already-sent recipients are skipped via the idempotency check, so only failed recipients are retried.
-
-4. **Max Retry Limit (3)**: If `ApproximateReceiveCount > 3`, the message is deleted from SQS and logged as permanently failed to prevent infinite retry loops.
-
-5. **Per-recipient error handling**: Individual recipient failures inside `sendMail()` are caught, logged to `newsletterErrors`, and the loop continues to the next recipient. The batch is only considered failed if `sendMail()` itself throws.
-
-### Key Services
-- `service/newsletter-service.ts` — Newsletter queue processing, SES sending, idempotency
-- `service/transaction-email-service.ts` — Transactional email sending (direct, no queue)
-- `service/background-process.ts` — SQS polling loops for newsletters, newsletter events, and system events
-- `service/events-service/index.ts` — Processes SES notification events from SQS
-- `service/database/db.ts` — All Prisma database operations
-- `service/aws/awsHelper.ts` — AWS client singletons (SES, SQS) and queue URL constants
-- `lib/core/aws-utils.ts` — `preparePayload()` (Mailgun→SES format), event parsing, Mailgun event formatting
+### Key Services & Utilities
+- `lib/core/sqs-worker.ts` — Generic SQS polling utility used by all background tasks.
+- `lib/core/event-processor.ts` — Factory for creating standardized SES notification handlers.
+- `service/newsletter-service.ts` — Newsletter batch processing and idempotency logic.
+- `service/transaction-email-service.ts` — Transactional email sending.
+- `service/events-service/` — Mailgun-compatible event analytics and SES event handlers.
+- `service/database/db.ts` — Centralized Prisma operations with built-in idempotency support.
 
 ### Database (Prisma + MySQL)
-Key tables: `newsletterBatch`, `newsletterMessages`, `newsletterErrors`, `newsletterNotifications`, `systemMails`
+Key tables: `newsletterBatch`, `newsletterMessages`, `newsletterErrors`, `newsletterNotifications`, `systemMails`, `adminUser`.
 
 ## Development
 
 - **Runtime:** Bun
-- **Tests:** `bun run test` (Vitest, 190 tests)
-- **Build:** `bun run build` (Prisma generate + Next.js build + tsc for server)
-- **Dev:** `npm run dev`
+- **Tests:** `bun run test` (Vitest, ~200 tests covering edge cases and performance).
+- **Build:** `bun run build` (Next.js build + server compilation).
 
 ## Important Conventions
 
-- All AWS clients are lazily initialized singletons (`service/aws/awsHelper.ts`)
-- SES region can be a comma-separated list for newsletter sending (random selection)
-- The `v:email-id` field from Mailgun is used as the `batchId` for tracking
-- `recipient-variables` from Mailgun are used for per-recipient template substitution (`%recipient.key%`)
-- Structured logging via Pino with child loggers per service
+- **Security**: `DASHBOARD_JWT_SECRET` is mandatory. Default admin credentials MUST be rotated upon first login.
+- **Lazy Clients**: All AWS clients are lazily initialized singletons (`service/aws/awsHelper.ts`).
+- **Path Aliases**: Use `@/` for absolute imports from the project root.
+- **Standardized Responses**: Use `lib/api-response.ts` for all API route returns.
+- **Structured Logging**: Pino child loggers are used per service for easy traceability.
+

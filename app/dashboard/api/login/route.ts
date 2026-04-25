@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/database"
-import { verifyPassword, createSession, setSessionCookie, ensureDefaultUser } from "@/lib/dashboard/auth"
+import { verifyPassword, createSession, setSessionCookie, ensureDefaultUser, hashPassword } from "@/lib/dashboard/auth"
 import logger from "@/lib/core/logger"
 
 const log = logger.child({ path: "dashboard/api/login" })
@@ -7,7 +7,7 @@ const log = logger.child({ path: "dashboard/api/login" })
 export async function POST(req: Request) {
     try {
         const body = await req.json()
-        const { email, password } = body as { email?: string; password?: string }
+        const { email, password, newEmail, newPassword } = body as { email?: string; password?: string; newEmail?: string; newPassword?: string }
 
         if (!email || !password) {
             return Response.json({ error: "Email and password are required" }, { status: 400 })
@@ -28,13 +28,34 @@ export async function POST(req: Request) {
             return Response.json({ error: "Invalid credentials" }, { status: 401 })
         }
 
-        const token = await createSession(user.id, user.email, user.name || "")
+        if (user.email === "admin@localhost" && (!newEmail || !newPassword)) {
+            return Response.json({
+                requireUpdate: true,
+                message: "Please update your default credentials",
+            })
+        }
+
+        let finalUserId = user.id
+        let finalEmail = user.email
+
+        if (user.email === "admin@localhost" && newEmail && newPassword) {
+            const hash = await hashPassword(newPassword)
+            const updated = await prisma.dashboardUser.update({
+                where: { id: user.id },
+                data: { email: newEmail, password: hash }
+            })
+            finalUserId = updated.id
+            finalEmail = updated.email
+            log.info({ oldEmail: email, newEmail }, "Default credentials updated")
+        }
+
+        const token = await createSession(finalUserId, finalEmail, user.name || "")
         const response = Response.json({
             ok: true,
-            user: { id: user.id, email: user.email, name: user.name },
+            user: { id: finalUserId, email: finalEmail, name: user.name },
         })
         setSessionCookie(response, token)
-        log.info({ email }, "Successful dashboard login")
+        log.info({ email: finalEmail }, "Successful dashboard login")
         return response
     } catch (error) {
         log.error(error, "Login error")
