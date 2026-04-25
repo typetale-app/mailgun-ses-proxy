@@ -85,3 +85,18 @@ model SystemMails {
   status                  SystemMailStatus          @default(pending)
   SystemMailNotifications SystemMailNotifications[]
 }
+
+model DashboardUser {
+  id       String   @id @default(uuid())
+  email    String   @unique
+  password String   @db.Text
+  name     String?
+  created  DateTime @default(now())
+  updated  DateTime @updatedAt
+}
+
+model DashboardSettings {
+  key     String   @id
+  value   String   @db.Text
+  updated DateTime @updatedAt
+}

@@ -1,89 +1,42 @@
-import { MessageSystemAttributeName, ReceiveMessageCommand } from "@aws-sdk/client-sqs"
-import logger from "../lib/core/logger"
-import { QUEUE_URL, sqsClient } from "./aws/awsHelper"
-import { processNewsletterEmailEvents } from "./events-service"
+import { startWorker } from "@/lib/core/sqs-worker"
+import { QUEUE_URL } from "./aws/awsHelper"
+import { handleNewsletterEmailEvent } from "./events-service"
 import { validateAndSend } from "./newsletter-service"
-import { processSystemEmailEvents } from "./system-email-notification"
-
-const log = logger.child({ service: "backgroundProcess" })
+import { handleSystemEmailEvent } from "./system-email-notification"
 
 /**
- *  This method process all the newsletter messages in the queue
+ * Processes the newsletter queue (Ghost CMS batches).
+ * Uses a long visibility timeout (15m) to handle large batch sends.
  */
 export async function processNewsletterQueue() {
-    log.info("[processNewsletterQueue] Processing newsletter queue")
-    const input = {
-        MessageAttributeNames: ["All"],
-        MessageSystemAttributeNames: [MessageSystemAttributeName.SentTimestamp,
-        MessageSystemAttributeName.ApproximateReceiveCount],
-        QueueUrl: QUEUE_URL.NEWSLETTER,
-        VisibilityTimeout: 900,
-        WaitTimeSeconds: 20,
-    }
-    const command = new ReceiveMessageCommand(input)
-    while (true) {
-        try {
-            const { Messages } = await sqsClient().send(command)
-            if (Messages && Messages.length > 0) {
-                for (const message of Messages) {
-                    try {
-                        await validateAndSend(message)
-                    } catch (e) {
-                        log.error(e, `[processNewsletterQueue] Failed to process message ${message.MessageId}`)
-                    }
-                }
-            }
-        } catch (e) {
-            log.error(e, "[processNewsletterQueue] Error polling SQS, will retry")
-        }
-    }
+    await startWorker({
+        name: "newsletter-sender",
+        queueUrl: QUEUE_URL.NEWSLETTER!,
+        visibilityTimeout: 900, // 15 minutes for processing batches
+        handler: validateAndSend
+    })
 }
 
 /**
- * This process newsletter email events
+ * Processes delivery/bounce events for newsletter emails.
  */
 export async function processNewsletterEventsQueue() {
-    log.info("[background] Processing newsletter events queue")
-    const input = {
-        MessageAttributeNames: ["All"],
-        MessageSystemAttributeNames: [
-            MessageSystemAttributeName.SentTimestamp,
-            MessageSystemAttributeName.ApproximateReceiveCount
-        ],
-        QueueUrl: QUEUE_URL.NEWSLETTER_NOTIFICATION,
-        VisibilityTimeout: 30,
-        WaitTimeSeconds: 20,
-    }
-    const command = new ReceiveMessageCommand(input)
-    while (true) {
-        try {
-            let response = await sqsClient().send(command)
-            if (response.Messages) await processNewsletterEmailEvents(response)
-        } catch (e) {
-            log.error(e, "[processNewsletterEventsQueue] Error processing newsletter events")
-        }
-    }
+    await startWorker({
+        name: "newsletter-events",
+        queueUrl: QUEUE_URL.NEWSLETTER_NOTIFICATION!,
+        handler: handleNewsletterEmailEvent
+    })
 }
 
 /**
- * This process system email events
+ * Processes delivery/bounce events for system/transactional emails.
  */
 export async function processSystemEventsQueue() {
-    log.info("[background] Processing system events queue")
-    const input = {
-        MessageAttributeNames: ["All"],
-        MessageSystemAttributeNames: [MessageSystemAttributeName.SentTimestamp],
-        QueueUrl: QUEUE_URL.SYSTEM_NOTIFICATION,
-        VisibilityTimeout: 30,
-        WaitTimeSeconds: 20,
-    }
-    const command = new ReceiveMessageCommand(input)
-    while (true) {
-        try {
-            let response = await sqsClient().send(command)
-            if (response.Messages) await processSystemEmailEvents(response)
-        } catch (e) {
-            log.error(e, "[processSystemEventsQueue] Error processing system events")
-        }
-    }
+    await startWorker({
+        name: "system-events",
+        queueUrl: QUEUE_URL.SYSTEM_NOTIFICATION!,
+        handler: handleSystemEmailEvent
+    })
 }
+
+

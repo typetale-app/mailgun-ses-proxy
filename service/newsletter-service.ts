@@ -6,6 +6,7 @@ import { randomUUID } from "node:crypto"
 import { PreparedEmail, preparePayload } from "../lib/core/aws-utils"
 import { safeStringify } from "../lib/core/common"
 import logger from "../lib/core/logger"
+import { TaskQueue } from "../lib/task-queue"
 import { QUEUE_URL, sesNewsletterClient, sqsClient } from "./aws/awsHelper"
 import {
     checkNewsletterAlreadySent,
