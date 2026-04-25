@@ -12,6 +12,7 @@ const log = logger.child({ service: "backgroundProcess" })
  */
 export async function processNewsletterQueue() {
     log.info("[processNewsletterQueue] Processing newsletter queue")
+    const client = sqsClient() // Fatal if SQS_REGION is missing — let it propagate
     const input = {
         MessageAttributeNames: ["All"],
         MessageSystemAttributeNames: [MessageSystemAttributeName.SentTimestamp,
@@ -23,7 +24,7 @@ export async function processNewsletterQueue() {
     const command = new ReceiveMessageCommand(input)
     while (true) {
         try {
-            const { Messages } = await sqsClient().send(command)
+            const { Messages } = await client.send(command)
             if (Messages && Messages.length > 0) {
                 for (const message of Messages) {
                     try {
@@ -44,6 +45,7 @@ export async function processNewsletterQueue() {
  */
 export async function processNewsletterEventsQueue() {
     log.info("[background] Processing newsletter events queue")
+    const client = sqsClient() // Fatal if SQS_REGION is missing — let it propagate
     const input = {
         MessageAttributeNames: ["All"],
         MessageSystemAttributeNames: [
@@ -57,7 +59,7 @@ export async function processNewsletterEventsQueue() {
     const command = new ReceiveMessageCommand(input)
     while (true) {
         try {
-            let response = await sqsClient().send(command)
+            let response = await client.send(command)
             if (response.Messages) await processNewsletterEmailEvents(response)
         } catch (e) {
             log.error(e, "[processNewsletterEventsQueue] Error processing newsletter events")
@@ -70,6 +72,7 @@ export async function processNewsletterEventsQueue() {
  */
 export async function processSystemEventsQueue() {
     log.info("[background] Processing system events queue")
+    const client = sqsClient() // Fatal if SQS_REGION is missing — let it propagate
     const input = {
         MessageAttributeNames: ["All"],
         MessageSystemAttributeNames: [MessageSystemAttributeName.SentTimestamp],
@@ -80,10 +83,11 @@ export async function processSystemEventsQueue() {
     const command = new ReceiveMessageCommand(input)
     while (true) {
         try {
-            let response = await sqsClient().send(command)
+            let response = await client.send(command)
             if (response.Messages) await processSystemEmailEvents(response)
         } catch (e) {
             log.error(e, "[processSystemEventsQueue] Error processing system events")
         }
     }
 }
+
