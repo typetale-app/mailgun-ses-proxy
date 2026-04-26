@@ -1,4 +1,4 @@
-import { MailgunMessage } from "@/types/mailgun"
+import { MailgunMessage } from "../../types/mailgun"
 import { NotificationEvent } from "../../lib/core/aws-utils"
 import { safeStringify } from "../../lib/core/common"
 import { prisma } from "../../lib/database"

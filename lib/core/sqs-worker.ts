@@ -5,7 +5,7 @@ import {
     MessageSystemAttributeName,
     QueueAttributeName
 } from "@aws-sdk/client-sqs"
-import { sqsClient } from "@/service/aws/awsHelper"
+import { sqsClient } from "../../service/aws/awsHelper"
 import logger from "./logger"
 
 const log = logger.child({ module: "sqs-worker" })

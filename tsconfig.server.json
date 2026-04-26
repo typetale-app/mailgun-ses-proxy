@@ -1,12 +1,12 @@
 {
     "extends": "./tsconfig.json",
     "compilerOptions": {
-        "module": "es2015",
+        "module": "CommonJS",
         "outDir": "dist",
         "lib": ["es2019", "dom", "dom.iterable", "esnext"],
         "target": "es2019",
         "isolatedModules": false,
         "noEmit": false
     },
-    "include": ["server.ts", "lib/**/*.js"]
+    "include": ["server.ts", "lib/**/*.ts", "service/**/*.ts"]
 }

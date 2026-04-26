@@ -1,5 +1,5 @@
-import { TaskQueue } from "@/lib/task-queue"
-import { MailgunMessage } from "@/types/mailgun"
+import { TaskQueue } from "../lib/task-queue"
+import { MailgunMessage } from "../types/mailgun"
 import { SendEmailCommand } from "@aws-sdk/client-sesv2"
 import { DeleteMessageCommand, Message, SendMessageCommand } from "@aws-sdk/client-sqs"
 import { randomUUID } from "node:crypto"

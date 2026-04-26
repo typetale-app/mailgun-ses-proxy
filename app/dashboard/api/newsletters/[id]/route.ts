@@ -49,6 +49,11 @@ export async function GET(req: NextRequest, { params }: PathParam) {
                     _count: {
                         select: { notificationEvents: true },
                     },
+                    notificationEvents: {
+                        orderBy: { timestamp: "desc" },
+                        take: 1,
+                        select: { type: true, timestamp: true }
+                    }
                 },
             }),
             prisma.newsletterErrors.count({ where: { newsletterBatchId: id } }),
@@ -75,6 +80,8 @@ export async function GET(req: NextRequest, { params }: PathParam) {
                     toEmail: m.toEmail,
                     created: m.created,
                     eventCount: m._count.notificationEvents,
+                    lastStatus: m.notificationEvents[0]?.type || "sent",
+                    lastEventAt: m.notificationEvents[0]?.timestamp || null,
                 })),
                 pagination: {
                     page,

@@ -1,4 +1,4 @@
-import { startWorker } from "@/lib/core/sqs-worker"
+import { startWorker } from "../lib/core/sqs-worker"
 import { QUEUE_URL } from "./aws/awsHelper"
 import { handleNewsletterEmailEvent } from "./events-service"
 import { validateAndSend } from "./newsletter-service"

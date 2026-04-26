@@ -23,6 +23,8 @@ interface Message {
     toEmail: string
     created: string
     eventCount: number
+    lastStatus: string
+    lastEventAt: string | null
 }
 
 interface ErrorEntry {
@@ -213,6 +215,7 @@ export default function NewsletterDetailPage({ params }: { params: Promise<{ id:
                                             <TableRow>
                                                 <TableHead>Message ID</TableHead>
                                                 <TableHead>Recipient</TableHead>
+                                                <TableHead className="text-center">Status</TableHead>
                                                 <TableHead className="text-center">Events</TableHead>
                                                 <TableHead className="text-right">Sent At</TableHead>
                                             </TableRow>
@@ -228,8 +231,27 @@ export default function NewsletterDetailPage({ params }: { params: Promise<{ id:
                                                     </TableCell>
                                                     <TableCell className="font-medium">{msg.toEmail}</TableCell>
                                                     <TableCell className="text-center">
+                                                        <Badge
+                                                            variant="outline"
+                                                            className={cn(
+                                                                "capitalize px-2 py-0.5 text-[10px] font-semibold border-none",
+                                                                msg.lastStatus === "delivered" && "bg-emerald-500/10 text-emerald-500",
+                                                                msg.lastStatus === "opened" && "bg-blue-500/10 text-blue-500",
+                                                                msg.lastStatus === "clicked" && "bg-cyan-500/10 text-cyan-500",
+                                                                msg.lastStatus === "failed" && "bg-destructive/10 text-destructive",
+                                                                msg.lastStatus === "rejected" && "bg-destructive/10 text-destructive",
+                                                                msg.lastStatus === "complained" && "bg-amber-500/10 text-amber-500",
+                                                                msg.lastStatus === "unsubscribed" && "bg-slate-500/10 text-slate-500",
+                                                                msg.lastStatus === "sent" && "bg-muted text-muted-foreground",
+                                                                msg.lastStatus === "accepted" && "bg-indigo-500/10 text-indigo-500"
+                                                            )}
+                                                        >
+                                                            {msg.lastStatus}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell className="text-center">
                                                         <Link href={`/dashboard/events?search=${encodeURIComponent(msg.messageId)}`}>
-                                                            <Badge variant="secondary" className="hover:bg-secondary/80 cursor-pointer transition-colors">
+                                                            <Badge variant="secondary" className="hover:bg-secondary/80 cursor-pointer transition-colors text-[10px]">
                                                                 {msg.eventCount}
                                                             </Badge>
                                                         </Link>

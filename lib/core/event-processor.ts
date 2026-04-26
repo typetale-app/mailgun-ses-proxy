@@ -1,5 +1,5 @@
 import { Message } from "@aws-sdk/client-sqs"
-import { parseNotificationEvent, NotificationEvent } from "./aws-utils"
+import { NotificationEvent, parseNotificationEvent } from "./aws-utils"
 import logger from "./logger"
 
 const log = logger.child({ module: "event-processor" })
@@ -31,10 +31,15 @@ export function createEventProcessor(config: EventProcessorConfig) {
         }
 
         const result = parseNotificationEvent(message.MessageId, message.Body)
-        
+
+        if (!result.isNewsletterEmailEvent) {
+            log.warn({ name, messageId: result.messageId }, "Event is not a newsletter email event")
+            return
+        }
+
         // Check if the parent message exists in our DB
         const dbMessage = await lookupMessage(result.messageId)
-        
+
         if (!dbMessage) {
             // If message not found, it might be a race condition. 
             // Throwing triggers a retry without deleting from SQS.
@@ -43,12 +48,12 @@ export function createEventProcessor(config: EventProcessorConfig) {
 
         // Idempotent save (upsert)
         await saveNotification(result)
-        
-        log.info({ 
-            name, 
-            messageId: result.messageId, 
+
+        log.info({
+            name,
+            messageId: result.messageId,
             type: result.type,
-            notificationId: result.notificationId 
+            notificationId: result.notificationId
         }, "Processed event successfully")
     }
 }

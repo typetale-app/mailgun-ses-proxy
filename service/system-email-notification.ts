@@ -1,4 +1,4 @@
-import { createEventProcessor } from "@/lib/core/event-processor"
+import { createEventProcessor } from "../lib/core/event-processor"
 import { getSystemMessage, saveSystemEmailEvent } from "./database/db"
 
 /**

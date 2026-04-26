@@ -89,6 +89,7 @@ const awsToMailgunType = {
 export interface NotificationEvent {
     notificationId: string
     type: string
+    isNewsletterEmailEvent: boolean
     messageId: string
     timestamp: Date
     raw: any
@@ -112,7 +113,14 @@ export function parseNotificationEvent(messageId: string, inputEvent: string): N
 
     const event = parsed as {
         eventType: keyof typeof awsToMailgunType
-        mail: { messageId: string, timestamp?: string | Date }
+        mail: {
+            messageId: string,
+            timestamp?: string | Date,
+            tags: {
+                batchId: string[],
+                "ghost-email": string[]
+            }
+        },
         open?: { timestamp?: string | Date }
     }
 
@@ -121,7 +129,8 @@ export function parseNotificationEvent(messageId: string, inputEvent: string): N
     return {
         notificationId: messageId,
         type: String(mailgunType).toLocaleLowerCase(),
-        messageId: event.mail.messageId.replace(/^<|>$/g, "").split("@")[0],
+        messageId: event.mail.messageId,
+        isNewsletterEmailEvent: event.mail.tags?.["ghost-email"]?.length > 0,
         timestamp: normalizeEventTimestamp(event.open?.timestamp || event.mail.timestamp, new Date()),
         raw: inputEvent,
     }

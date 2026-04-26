@@ -1,6 +1,6 @@
-import { EventsProps, QueryParams } from "@/types/default"
-import { prisma } from "../database/db"
-import { formatAsMailgunEvent } from "../../lib/core/aws-utils"
+import { EventsProps, QueryParams } from "@/types/default";
+import { formatAsMailgunEvent } from "../../lib/core/aws-utils";
+import { prisma } from "../database/db";
 
 /**
  * Generates the "next" URL for Mailgun pagination.
@@ -23,28 +23,28 @@ export async function getEmailEvents(params: EventsProps) {
     const take = params.limit || 300;
 
     // Handle Mailgun "OR" type filtering (e.g. "delivered OR opened")
-    const types = params.type.includes("OR") 
+    const types = params.type.includes("OR")
         ? params.type.split("OR").map(s => s.trim().toLowerCase())
         : [params.type.toLowerCase()];
 
-    const timeRange = { 
-        gt: new Date(params.begin * 1000), 
-        lt: new Date(params.end * 1000) 
+    const timeRange = {
+        gt: new Date(params.begin * 1000),
+        lt: new Date(params.end * 1000)
     };
 
     const result = await prisma.newsletterNotifications.findMany({
         skip,
         take,
         orderBy: { id: params.order },
-        include: { 
-            newsletter: { 
-                include: { newsletterBatch: true } 
-            } 
+        include: {
+            newsletter: {
+                include: { newsletterBatch: true }
+            }
         },
         where: {
             type: { in: types },
-            newsletter: { 
-                newsletterBatch: { siteId: params.siteId } 
+            newsletter: {
+                newsletterBatch: { siteId: params.siteId }
             },
             created: timeRange,
         },
