@@ -7,7 +7,7 @@ import {
 } from "@aws-sdk/client-sqs"
 import { sqsClient } from "../../service/aws/awsHelper"
 import logger from "./logger"
-import { heartbeat, registerWorker } from "./worker-registry"
+import { heartbeat, markWorkerDead, registerWorker } from "./worker-registry"
 
 const log = logger.child({ module: "sqs-worker" })
 
@@ -17,6 +17,11 @@ const MAX_RECEIVE_COUNT = 3
 // Exponential back-off bounds for transient poll errors (ms).
 const POLL_BACKOFF_MIN_MS = 1_000
 const POLL_BACKOFF_MAX_MS = 30_000
+
+// If the loop hits this many consecutive unexpected errors, the worker exits
+// to avoid spinning indefinitely. The restart wrapper in server.ts will
+// bring it back with backoff.
+const MAX_CONSECUTIVE_ERRORS = 50
 
 interface WorkerConfig {
     name: string
@@ -32,6 +37,7 @@ interface WorkerConfig {
  *  - handler throws   → message left in SQS for retry
  *  - poll error       → exponential back-off, loop continues
  *  - receiveCount > MAX_RECEIVE_COUNT → deleted without calling handler
+ *  - unexpected loop error → logged, backoff, loop continues (circuit-breaker exits after MAX_CONSECUTIVE_ERRORS)
  */
 export async function startWorker(config: WorkerConfig) {
     const {
@@ -61,52 +67,81 @@ export async function startWorker(config: WorkerConfig) {
     }
 
     let pollBackoffMs = POLL_BACKOFF_MIN_MS
+    let consecutiveErrors = 0
 
-    while (true) {
-        let messages: Message[] | undefined
-        try {
-            const { Messages } = await client.send(new ReceiveMessageCommand(receiveInput))
-            messages = Messages
-            pollBackoffMs = POLL_BACKOFF_MIN_MS
-        } catch (pollError) {
-            log.error({ name, err: pollError }, `Poll error — retrying in ${pollBackoffMs}ms`)
-            await sleep(pollBackoffMs)
-            pollBackoffMs = Math.min(pollBackoffMs * 2, POLL_BACKOFF_MAX_MS)
-            continue
-        }
-
-        if (!messages || messages.length === 0) {
-            heartbeat(name)
-            continue
-        }
-
-        for (const message of messages) {
-            const receiveCount = parseInt(
-                message.Attributes?.ApproximateReceiveCount ?? "0",
-                10
-            )
-
-            if (receiveCount > MAX_RECEIVE_COUNT) {
-                log.error(
-                    { name, messageId: message.MessageId, receiveCount },
-                    "Message exceeded max receive count — discarding"
-                )
-                await deleteMessage(client, queueUrl, message)
-                continue
-            }
-
+    try {
+        while (true) {
             try {
-                await handler(message)
-                await deleteMessage(client, queueUrl, message)
-            } catch (handlerError) {
+                let messages: Message[] | undefined
+                try {
+                    const { Messages } = await client.send(new ReceiveMessageCommand(receiveInput))
+                    messages = Messages
+                    pollBackoffMs = POLL_BACKOFF_MIN_MS
+                } catch (pollError) {
+                    log.error({ name, err: pollError }, `Poll error — retrying in ${pollBackoffMs}ms`)
+                    await sleep(pollBackoffMs)
+                    pollBackoffMs = Math.min(pollBackoffMs * 2, POLL_BACKOFF_MAX_MS)
+                    consecutiveErrors++
+                    continue
+                }
+
+                if (!messages || messages.length === 0) {
+                    heartbeat(name)
+                    consecutiveErrors = 0
+                    continue
+                }
+
+                for (const message of messages) {
+                    const receiveCount = parseInt(
+                        message.Attributes?.ApproximateReceiveCount ?? "0",
+                        10
+                    )
+
+                    if (receiveCount > MAX_RECEIVE_COUNT) {
+                        log.error(
+                            { name, messageId: message.MessageId, receiveCount },
+                            "Message exceeded max receive count — discarding"
+                        )
+                        await deleteMessage(client, queueUrl, message)
+                        continue
+                    }
+
+                    try {
+                        await handler(message)
+                        await deleteMessage(client, queueUrl, message)
+                    } catch (handlerError) {
+                        log.error(
+                            { name, messageId: message.MessageId, receiveCount, err: handlerError },
+                            "Handler error — message left in SQS for retry"
+                        )
+                    }
+                }
+
+                heartbeat(name)
+                consecutiveErrors = 0
+            } catch (loopError) {
+                consecutiveErrors++
                 log.error(
-                    { name, messageId: message.MessageId, receiveCount, err: handlerError },
-                    "Handler error — message left in SQS for retry"
+                    { name, err: loopError, consecutiveErrors },
+                    `Unexpected loop error — continuing (${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS})`
                 )
+
+                if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+                    const msg = `Worker ${name} hit ${MAX_CONSECUTIVE_ERRORS} consecutive errors — exiting loop`
+                    log.error({ name }, msg)
+                    markWorkerDead(name, msg)
+                    return
+                }
+
+                await sleep(pollBackoffMs)
+                pollBackoffMs = Math.min(pollBackoffMs * 2, POLL_BACKOFF_MAX_MS)
             }
         }
-
-        heartbeat(name)
+    } catch (fatalError) {
+        // Belt-and-suspenders: if something escapes all inner catches, log and exit.
+        log.error({ name, err: fatalError }, "Fatal error escaped worker loop")
+        markWorkerDead(name, fatalError)
+        throw fatalError
     }
 }
 
