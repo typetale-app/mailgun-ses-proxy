@@ -16,7 +16,7 @@ import {
     shouldPersistNewsletterFormattedContents,
 } from "./database/db"
 
-const log = logger.child({ service: "service:newsletter-service" })
+const log = logger.child({ module: "service:newsletter-service" })
 const PERSIST_FORMATTED_CONTENTS = shouldPersistNewsletterFormattedContents()
 
 // ─── Public API ──────────────────────────────────────────────
@@ -123,17 +123,39 @@ async function sendSingleEmail(
         return
     }
 
+    // ── Step 1: Send via SES ─────────────────────────────────────────────
+    let messageId: string
     try {
         const resp = await sesNewsletterClient().send(new SendEmailCommand(request))
-        const messageId = resp.MessageId as string
-        await createNewsletterEntry(messageId, newsletterBatchId, toEmail, recipientData, formattedContents)
-        log.info({ messageId, toEmail, siteId }, "email sent")
-    } catch (e) {
+        messageId = resp.MessageId as string
+    } catch (sesError) {
+        // SES send failed — record in DB and re-throw for TaskQueue tracking.
         const errorId = randomUUID()
-        log.error({ err: e, errorId, toEmail, siteId }, "SES send failed")
-        await createNewsletterErrorEntry(errorId, String(e), emailBatchId, toEmail, recipientData, formattedContents)
-        throw e // Re-throw so the queue tracks this as a failure
+        log.error({ err: sesError, errorId, toEmail, siteId }, "SES send failed")
+        try {
+            await createNewsletterErrorEntry(errorId, String(sesError), emailBatchId, toEmail, recipientData, formattedContents)
+        } catch (dbErr) {
+            log.error({ err: dbErr, errorId, toEmail }, "Failed to persist SES error entry to DB")
+        }
+        throw sesError
     }
+
+    // ── Step 2: Record in DB ─────────────────────────────────────────────
+    // The email has already been delivered at this point. If the DB write
+    // fails, the idempotency guard (checkNewsletterAlreadySent) won't find
+    // this recipient on retry, causing a duplicate send. We log at CRITICAL
+    // severity so this can be caught by alerting and reconciled manually.
+    try {
+        await createNewsletterEntry(messageId, newsletterBatchId, toEmail, recipientData, formattedContents)
+    } catch (dbError) {
+        log.error(
+            { err: dbError, messageId, toEmail, newsletterBatchId, siteId },
+            "CRITICAL: Email sent via SES but DB record failed — potential duplicate on retry"
+        )
+        throw dbError
+    }
+
+    log.info({ messageId, toEmail, siteId }, "email sent")
 }
 
 

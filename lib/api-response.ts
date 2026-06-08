@@ -27,20 +27,18 @@ export const ERROR_TYPES = {
     SERVICE_ERROR: "Service Unavailable",
 } as const
 
-export interface ApiResponse {
+export interface ApiResponseBody {
     success: boolean
     timestamp: string
     [key: string]: any
 }
 
-/**
- * API Response structure interfaces
- */
-export interface SuccessResponse extends ApiResponse{
+export interface SuccessResponseBody extends ApiResponseBody {
+    data: any
     message: string
 }
 
-export interface ErrorResponse extends ApiResponse {
+export interface ErrorResponseBody extends ApiResponseBody {
     error: string
     message: string
     details?: any
@@ -53,25 +51,23 @@ export interface ErrorResponse extends ApiResponse {
 export class ApiResponse {
 
     static raw<T>(data: T, status: number = HTTP_STATUS.OK): Response {
-        const response: ApiResponse = {
+        return Response.json({
             success: true,
             ...data,
             timestamp: new Date().toISOString(),
-        }
-        return Response.json(response, { status })
+        }, { status })
     }
 
     /**
      * Create a standardized success response
      */
     static success<T>(data: T, message: string = "Operation completed successfully", status: number = HTTP_STATUS.OK): Response {
-        const response: SuccessResponse = {
+        return Response.json({
             success: true,
             data,
+            message,
             timestamp: new Date().toISOString(),
-            message: message
-        }
-        return Response.json(response, { status })
+        }, { status })
     }
 
     /**
@@ -83,15 +79,13 @@ export class ApiResponse {
         status: number = HTTP_STATUS.INTERNAL_SERVER_ERROR,
         details?: any
     ): Response {
-        const response: ErrorResponse = {
+        return Response.json({
             success: false,
             error: errorType,
             message,
             timestamp: new Date().toISOString(),
-            ...(details && { details }),
-        }
-
-        return Response.json(response, { status })
+            ...(details ? { details } : {}),
+        }, { status })
     }
 
     /**
@@ -133,16 +127,7 @@ export class ApiResponse {
      * Validation Error (400) - Validation error
      */
     static validationError(message: string, details?: any): Response {
-        return Response.json(
-            {
-                success: false,
-                error: ERROR_TYPES.VALIDATION_ERROR,
-                message,
-                timestamp: new Date().toISOString(),
-                ...(details && { details }),
-            },
-            { status: HTTP_STATUS.BAD_REQUEST }
-        )
+        return this.error(message, ERROR_TYPES.VALIDATION_ERROR, HTTP_STATUS.BAD_REQUEST, details)
     }
 
     /**

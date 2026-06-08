@@ -1,4 +1,4 @@
-import pino from 'pino';
+import pino from 'pino'
 
 function resolveLogLevel() {
     const envLevel = process.env.LOG_LEVEL
@@ -6,9 +6,16 @@ function resolveLogLevel() {
     return process.env.NODE_ENV != "production" ? "debug" : "info"
 }
 
+const destination = pino.destination({ sync: false, maxLength: 1024 })
+
 const logger = pino(
     { level: resolveLogLevel() },
-    pino.destination({ sync: true })
-);
+    destination,
+)
 
-export default logger.child({ app: "mailgun-ses-proxy" });
+/** Flush buffered log entries (call before process exit). */
+export function flushLogger(): void {
+    destination.flushSync()
+}
+
+export default logger.child({ app: "mailgun-ses-proxy" })

@@ -1,7 +1,7 @@
 import { clearSessionCookie } from "@/lib/dashboard/auth"
 import logger from "@/lib/core/logger"
 
-const log = logger.child({ path: "dashboard/api/logout" })
+const log = logger.child({ module: "dashboard/api/logout" })
 
 export async function POST() {
     try {

@@ -1,29 +1,22 @@
-import {
-    DeleteMessageCommand,
-    Message,
-    MessageSystemAttributeName,
-    QueueAttributeName,
-    ReceiveMessageCommand
-} from "@aws-sdk/client-sqs"
+import { MessageSystemAttributeName, QueueAttributeName, type Message } from "@aws-sdk/client-sqs"
+import { Consumer } from "sqs-consumer"
 import { sqsClient } from "../../service/aws/awsHelper"
 import logger from "./logger"
 import { heartbeat, markWorkerDead, registerWorker } from "./worker-registry"
 
 const log = logger.child({ module: "sqs-worker" })
 
-// Messages received more than this many times are discarded as poison-pills.
 const MAX_RECEIVE_COUNT = 3
-
-// Exponential back-off bounds for transient poll errors (ms).
-const POLL_BACKOFF_MIN_MS = 1_000
-const POLL_BACKOFF_MAX_MS = 30_000
-
-// If the loop hits this many consecutive unexpected errors, the worker exits
-// to avoid spinning indefinitely. The restart wrapper in server.ts will
-// bring it back with backoff.
 const MAX_CONSECUTIVE_ERRORS = 50
 
-interface WorkerConfig {
+const consumers = new Map<string, Consumer>()
+
+export function requestShutdown(): void {
+    log.info("Shutdown requested — stopping all SQS consumers")
+    consumers.forEach((consumer) => consumer.stop())
+}
+
+export interface WorkerConfig {
     name: string
     queueUrl: string
     visibilityTimeout?: number
@@ -31,15 +24,7 @@ interface WorkerConfig {
     handler: (message: Message) => Promise<void>
 }
 
-/**
- * Long-polling SQS worker.
- *  - handler resolves → message deleted
- *  - handler throws   → message left in SQS for retry
- *  - poll error       → exponential back-off, loop continues
- *  - receiveCount > MAX_RECEIVE_COUNT → deleted without calling handler
- *  - unexpected loop error → logged, backoff, loop continues (circuit-breaker exits after MAX_CONSECUTIVE_ERRORS)
- */
-export async function startWorker(config: WorkerConfig) {
+export async function startWorker(config: WorkerConfig): Promise<void> {
     const {
         name,
         queueUrl,
@@ -48,137 +33,96 @@ export async function startWorker(config: WorkerConfig) {
         handler,
     } = config
 
-    const client = bootstrapWorker(name, queueUrl)
-    if (!client) return
-
     log.info({ name, queueUrl }, `Starting SQS worker: ${name}`)
     registerWorker(name)
 
-    const receiveInput = {
-        QueueUrl: queueUrl,
-        AttributeNames: ["All"] as QueueAttributeName[],
-        MessageAttributeNames: ["All"],
-        MessageSystemAttributeNames: [
+    let consecutiveErrors = 0
+
+    const consumer = Consumer.create({
+        queueUrl,
+        sqs: sqsClient(),
+        batchSize: 1,
+        visibilityTimeout,
+        waitTimeSeconds,
+        attributeNames: ["All"] as QueueAttributeName[],
+        messageAttributeNames: ["All"],
+        messageSystemAttributeNames: [
             MessageSystemAttributeName.SentTimestamp,
             MessageSystemAttributeName.ApproximateReceiveCount,
         ],
-        VisibilityTimeout: visibilityTimeout,
-        WaitTimeSeconds: waitTimeSeconds,
-    }
 
-    let pollBackoffMs = POLL_BACKOFF_MIN_MS
-    let consecutiveErrors = 0
+        handleMessageBatch: async (messages) => {
+            const acknowledged: Message[] = []
+            let anyHandlerSuccess = false
 
-    try {
-        while (true) {
-            try {
-                let messages: Message[] | undefined
-                try {
-                    const { Messages } = await client.send(new ReceiveMessageCommand(receiveInput))
-                    messages = Messages
-                    pollBackoffMs = POLL_BACKOFF_MIN_MS
-                } catch (pollError) {
-                    log.error({ name, err: pollError }, `Poll error — retrying in ${pollBackoffMs}ms`)
-                    await sleep(pollBackoffMs)
-                    pollBackoffMs = Math.min(pollBackoffMs * 2, POLL_BACKOFF_MAX_MS)
-                    consecutiveErrors++
-                    continue
-                }
-
-                if (!messages || messages.length === 0) {
-                    heartbeat(name)
-                    consecutiveErrors = 0
-                    continue
-                }
-
-                for (const message of messages) {
-                    const receiveCount = parseInt(
-                        message.Attributes?.ApproximateReceiveCount ?? "0",
-                        10
-                    )
-
-                    if (receiveCount > MAX_RECEIVE_COUNT) {
-                        log.error(
-                            { name, messageId: message.MessageId, receiveCount },
-                            "Message exceeded max receive count — discarding"
-                        )
-                        await deleteMessage(client, queueUrl, message)
-                        continue
-                    }
-
-                    try {
-                        await handler(message)
-                        await deleteMessage(client, queueUrl, message)
-                    } catch (handlerError) {
-                        log.error(
-                            { name, messageId: message.MessageId, receiveCount, err: handlerError },
-                            "Handler error — message left in SQS for retry"
-                        )
-                    }
-                }
-
-                heartbeat(name)
-                consecutiveErrors = 0
-            } catch (loopError) {
-                consecutiveErrors++
-                log.error(
-                    { name, err: loopError, consecutiveErrors },
-                    `Unexpected loop error — continuing (${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS})`
+            for (const msg of messages) {
+                const receiveCount = parseInt(
+                    msg.Attributes?.ApproximateReceiveCount ?? "0",
+                    10,
                 )
 
-                if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-                    const msg = `Worker ${name} hit ${MAX_CONSECUTIVE_ERRORS} consecutive errors — exiting loop`
-                    log.error({ name }, msg)
-                    markWorkerDead(name, msg)
-                    return
+                if (receiveCount > MAX_RECEIVE_COUNT) {
+                    log.error(
+                        { name, messageId: msg.MessageId, receiveCount },
+                        "Message exceeded max receive count — discarding",
+                    )
+                    acknowledged.push(msg)
+                    continue
                 }
 
-                await sleep(pollBackoffMs)
-                pollBackoffMs = Math.min(pollBackoffMs * 2, POLL_BACKOFF_MAX_MS)
+                try {
+                    await handler(msg)
+                    acknowledged.push(msg)
+                    anyHandlerSuccess = true
+                } catch (err) {
+                    log.error(
+                        { name, messageId: msg.MessageId, receiveCount, err },
+                        "Handler error — message left in SQS for retry",
+                    )
+                }
             }
+
+            if (anyHandlerSuccess) heartbeat(name)
+
+            return acknowledged
+        },
+    })
+
+    attachLifecycleEvents(consumer, name, () => consecutiveErrors, (n) => { consecutiveErrors = n })
+
+    consumers.set(name, consumer)
+    consumer.start()
+
+    return new Promise<void>((resolve) => {
+        consumer.on("stopped", () => {
+            log.info({ name }, `Consumer ${name} stopped`)
+            markWorkerDead(name, "stopped")
+            consumers.delete(name)
+            resolve()
+        })
+    })
+}
+
+function attachLifecycleEvents(
+    consumer: Consumer,
+    name: string,
+    getErrors: () => number,
+    setErrors: (n: number) => void,
+): void {
+    consumer.on("empty", () => heartbeat(name))
+
+    consumer.on("error", (err) => {
+        const count = getErrors() + 1
+        setErrors(count)
+        log.error(
+            { name, err, consecutiveErrors: count },
+            `SQS consumer error (${count}/${MAX_CONSECUTIVE_ERRORS})`,
+        )
+        if (count >= MAX_CONSECUTIVE_ERRORS) {
+            log.error({ name }, "Circuit breaker tripped — stopping consumer")
+            consumer.stop()
         }
-    } catch (fatalError) {
-        // Belt-and-suspenders: if something escapes all inner catches, log and exit.
-        log.error({ name, err: fatalError }, "Fatal error escaped worker loop")
-        markWorkerDead(name, fatalError)
-        throw fatalError
-    }
-}
+    })
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-/** Validates config and initialises the SQS client. Returns null if setup fails. */
-function bootstrapWorker(name: string, queueUrl: string): ReturnType<typeof sqsClient> | null {
-    if (!queueUrl) {
-        log.error({ name }, "[bootstrap] Queue URL missing — worker will not start")
-        return null
-    }
-
-    try {
-        return sqsClient()
-    } catch (err) {
-        log.error({ name, err }, "[bootstrap] SQS client init failed (check SQS_REGION) — worker will not start")
-        return null
-    }
-}
-
-async function deleteMessage(
-    client: ReturnType<typeof sqsClient>,
-    queueUrl: string,
-    message: Message
-): Promise<void> {
-    if (!message.ReceiptHandle) return
-    try {
-        await client.send(new DeleteMessageCommand({
-            QueueUrl: queueUrl,
-            ReceiptHandle: message.ReceiptHandle,
-        }))
-    } catch (err) {
-        // Non-fatal — message becomes visible again after the visibility timeout.
-        log.warn({ messageId: message.MessageId, err }, "Failed to delete message from SQS")
-    }
-}
-
-function sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms))
+    consumer.on("message_processed", () => setErrors(0))
 }

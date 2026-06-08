@@ -1,7 +1,7 @@
-import { prisma } from "@/service/database/db";
-import logger from "@/lib/core/logger";
+import logger from "@/lib/core/logger"
+import { prisma } from "@/service/database/db"
 
-const log = logger.child({ path: "service/stats-service" })
+const log = logger.child({ module: "service/stats-service" })
 
 export async function getNewsletterUsage(input: { from: number; to: number; siteId: string }) {
     log.debug({ input }, "[getNewsletterUsage] input parameters")
@@ -16,7 +16,7 @@ export async function getNewsletterUsage(input: { from: number; to: number; site
             }
         },
     }
-    const usageCount = await prisma.newsletterMessages.count(searchParam);
+    const usageCount = await prisma.newsletterMessages.count(searchParam)
     return {
         status: "ok",
         data: {

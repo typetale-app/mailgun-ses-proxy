@@ -1,8 +1,8 @@
-import { prisma } from "@/lib/database"
 import { getSessionFromCookies } from "@/lib/dashboard/auth"
 import logger from "@/lib/core/logger"
+import { prisma } from "@/lib/database"
 
-const log = logger.child({ path: "dashboard/api/stats" })
+const log = logger.child({ module: "dashboard/api/stats" })
 
 export async function GET() {
     try {

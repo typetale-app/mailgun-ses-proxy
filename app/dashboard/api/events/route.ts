@@ -1,9 +1,10 @@
-import { prisma } from "@/lib/database"
 import { getSessionFromCookies } from "@/lib/dashboard/auth"
 import logger from "@/lib/core/logger"
+import { prisma } from "@/lib/database"
+import { parsePaginationParams } from "@/lib/utils"
 import { NextRequest } from "next/server"
 
-const log = logger.child({ path: "dashboard/api/events" })
+const log = logger.child({ module: "dashboard/api/events" })
 
 export async function GET(req: NextRequest) {
     try {
@@ -13,8 +14,7 @@ export async function GET(req: NextRequest) {
         }
 
         const searchParams = req.nextUrl.searchParams
-        const page = Math.max(1, parseInt(searchParams.get("page") || "1"))
-        const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "20")))
+        const { page, limit } = parsePaginationParams(searchParams)
         const type = searchParams.get("type") || ""
         const search = searchParams.get("search") || ""
         const sortBy = searchParams.get("sortBy") || "timestamp"

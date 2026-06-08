@@ -1,7 +1,7 @@
-import { MailgunMessage } from "../../types/mailgun"
 import { NotificationEvent } from "../../lib/core/aws-utils"
 import { safeStringify } from "../../lib/core/common"
 import { prisma } from "../../lib/database"
+import { MailgunMessage } from "../../types/mailgun"
 export { prisma }
 
 function getEnvBoolean(name: string, fallback = false) {
@@ -69,18 +69,22 @@ export function shouldPersistNewsletterFormattedContents() {
     return PERSIST_NEWSLETTER_FORMATTED_CONTENTS
 }
 
-export function saveNewsletterNotification(event: NotificationEvent) {
-    const data = {
+function prepareNotificationData(event: NotificationEvent) {
+    return {
         messageId: event.messageId,
         rawEvent: event.raw,
         type: event.type,
         notificationId: event.notificationId,
         timestamp: event.timestamp,
     }
+}
+
+export function saveNewsletterNotification(event: NotificationEvent) {
+    const data = prepareNotificationData(event)
     return prisma.newsletterNotifications.upsert({
         where: { notificationId: event.notificationId },
         create: data,
-        update: data, // In case of re-delivery, we just overwrite with same data
+        update: data,
     })
 }
 
@@ -100,17 +104,20 @@ export async function getNewsletterContent(newsletterBatchId: string) {
         where: { id: newsletterBatchId },
         select: { contents: true }
     })
-    return result && result.contents ? JSON.parse(result.contents) : null
+
+    if (!result || !result.contents) return null
+
+    try {
+        return JSON.parse(result.contents)
+    } catch (err) {
+        throw new Error(
+            `Failed to parse newsletter batch contents (batchId=${newsletterBatchId}): ${err instanceof Error ? err.message : err}`
+        )
+    }
 }
 
-export async function saveSystemEmailEvent(event: NotificationEvent) {
-    const data = {
-        messageId: event.messageId,
-        rawEvent: event.raw,
-        type: event.type,
-        notificationId: event.notificationId,
-        timestamp: event.timestamp,
-    }
+export function saveSystemEmailEvent(event: NotificationEvent) {
+    const data = prepareNotificationData(event)
     return prisma.systemMailNotifications.upsert({
         where: { notificationId: event.notificationId },
         create: data,

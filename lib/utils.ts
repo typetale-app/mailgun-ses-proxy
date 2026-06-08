@@ -5,6 +5,21 @@ export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs))
 }
 
+export interface PaginationParams {
+    page: number
+    limit: number
+}
+
+const DEFAULT_PAGE = 1
+const DEFAULT_LIMIT = 20
+const MAX_LIMIT = 100
+
+export function parsePaginationParams(searchParams: URLSearchParams): PaginationParams {
+    const page = Math.max(DEFAULT_PAGE, parseInt(searchParams.get("page") || String(DEFAULT_PAGE)))
+    const limit = Math.min(MAX_LIMIT, Math.max(DEFAULT_PAGE, parseInt(searchParams.get("limit") || String(DEFAULT_LIMIT))))
+    return { page, limit }
+}
+
 export function formatRelativeTime(date: string | Date): string {
     const now = new Date()
     const past = new Date(date)

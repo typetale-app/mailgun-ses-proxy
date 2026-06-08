@@ -4,11 +4,12 @@ import { MessageTag, SendEmailCommand } from "@aws-sdk/client-sesv2"
 import { sesSystemClient } from "./aws/awsHelper"
 import { EmailPayload } from "./validation-service/validation"
 
-const log = logger.child({ service: "service:transactional-email-service" })
+const log = logger.child({ module: "service:transactional-email-service" })
 
 function formatEmail(email: EmailPayload, tags: MessageTag[]) {
-    if (!process.env.TRANSACTIONAL_CONFIGURATION_SET_NAME)
-        throw "env variable TRANSACTIONAL_CONFIGURATION_SET_NAME is not defined"
+    if (!process.env.TRANSACTIONAL_CONFIGURATION_SET_NAME) {
+        throw new Error("env variable TRANSACTIONAL_CONFIGURATION_SET_NAME is not defined")
+    }
     return {
         ConfigurationSetName: process.env.TRANSACTIONAL_CONFIGURATION_SET_NAME,
         FromEmailAddress: email.from,
@@ -57,6 +58,6 @@ export async function sendSystemMail(email: EmailPayload) {
     }
 
     log.error({ resp, email }, "failed to send system mail")
-    throw new Error("Failed to send email");
+    throw new Error("Failed to send email")
 }
 

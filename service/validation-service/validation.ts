@@ -1,16 +1,16 @@
-import { z } from "zod";
+import { z } from "zod"
 
 // This regex matches:
 // 1. Optional Name followed by <email> 
 //    OR 
 // 2. Just a plain email address
-const emailWithOptionalNameRegex = /^([^<]+\s*<[^>]+>|[^<>\s]+@[^<>\s]+\.[^<>\s]+)$/;
+const emailWithOptionalNameRegex = /^([^<]+\s*<[^>]+>|[^<>\s]+@[^<>\s]+\.[^<>\s]+)$/
 
 const sesSenderSchema = z.string()
     .trim()
     .regex(emailWithOptionalNameRegex, {
         message: "Must be 'Name <email@domain.com>' or 'email@domain.com'",
-    });
+    })
 
 const EmailPayloadSchema = z.object({
     from: sesSenderSchema,

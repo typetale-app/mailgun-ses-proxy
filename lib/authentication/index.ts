@@ -1,7 +1,7 @@
-import { timingSafeEqual } from "crypto";
-import logger from "@/lib/core/logger";
+import { timingSafeEqual } from "crypto"
+import logger from "@/lib/core/logger"
 
-const log = logger.child({ path: "service/authenticate" })
+const log = logger.child({ module: "service/authenticate" })
 
 export async function authentication(token: string) {
     try {
@@ -16,7 +16,7 @@ export async function authentication(token: string) {
             return false
         }
         if (timingSafeEqual(Buffer.from(raw), Buffer.from(validKey))) {
-            return true;
+            return true
         }
     } catch (error) {
         log.error({ error }, "Error in authentication")

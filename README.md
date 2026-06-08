@@ -54,7 +54,7 @@ You must create three SQS queues to handle the traffic flow:
 
 ### 2. Connect SNS to SQS
 To track bounces and complaints, point your SES SNS topics to the SQS queues created above.
-> **Detailed Guide:** [How to orchestrate SES event pipelines](https://typetale.ontypetale.com/from-ses-to-sqs-orchestrating-ses-event-pipelines/)
+> **Detailed Guide:** [How to orchestrate SES event pipelines](https://typetale.ontypetale.com/from-sent-to-sqs-orchestrating-ses-event-pipelines/)
 
 ### 3. IAM Permissions
 Ensure your AWS user has the following policy:

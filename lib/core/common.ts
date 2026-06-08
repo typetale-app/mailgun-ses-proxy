@@ -8,7 +8,7 @@
  */
 export function replaceAll(str: string, find: string, replace: string): string {
     const escapedFind = find.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); // Escape special characters
-    return str.replace(new RegExp(escapedFind, "g"), replace);
+    return str.replace(new RegExp(escapedFind, "g"), replace)
 }
 
 /**
@@ -20,20 +20,20 @@ export function replaceAll(str: string, find: string, replace: string): string {
  * @returns A plain JSON string.
  */
 export function safeStringify(obj: any, config?: { indent?: number; dropKeys?: string[] }): string {
-    const cache = new Set<any>();
+    const cache = new Set<any>()
     const filterAndFormat = (key: string, value: any) => {
         if (config?.dropKeys?.includes(key)) {
-            return undefined; // Drop the key
+            return undefined // Drop the key
         }
         if (typeof value === "object" && value !== null) {
             if (cache.has(value)) {
-                return undefined; // Avoid circular references
+                return undefined // Avoid circular references
             }
-            cache.add(value);
+            cache.add(value)
         }
-        return value;
-    };
-    return JSON.stringify(obj, filterAndFormat, config?.indent || 2);
+        return value
+    }
+    return JSON.stringify(obj, filterAndFormat, config?.indent || 2)
 }
 
 
@@ -42,7 +42,7 @@ export function safeStringify(obj: any, config?: { indent?: number; dropKeys?: s
  * - 'exclude': Files are completely ignored.
  * - 'includeFilenames': Only the names of the files are included as strings.
  */
-type FileHandlingOption = 'exclude' | 'includeFilenames';
+type FileHandlingOption = 'exclude' | 'includeFilenames'
 
 /**
  * Configuration options for the formDataToObject function.
@@ -52,7 +52,7 @@ interface FormDataToObjectOptions {
    * How to handle File objects found in the FormData.
    * @default 'exclude'
    */
-  fileHandling?: FileHandlingOption;
+  fileHandling?: FileHandlingOption
 }
 
 /**
@@ -75,53 +75,53 @@ export function formDataToObject(
   options: FormDataToObjectOptions = {}
 ): FormDataObject {
   // Set default options
-  const { fileHandling = 'exclude' }: FormDataToObjectOptions = options;
-  const obj: FormDataObject = {};
+  const { fileHandling = 'exclude' }: FormDataToObjectOptions = options
+  const obj: FormDataObject = {}
 
   formData.forEach((value: FormDataEntryValue, key: string) => {
-    let processedValue: string | undefined; // Can be string (value/filename) or undefined (if excluded)
+    let processedValue: string | undefined // Can be string (value/filename) or undefined (if excluded)
 
     // --- Step 1: Process the value based on type and options ---
     if (value instanceof File) {
       // It's a file
       if (fileHandling === 'exclude') {
-        return; // Skip this entry if files should be excluded
+        return // Skip this entry if files should be excluded
       } else if (fileHandling === 'includeFilenames') {
-        processedValue = value.name; // Use filename as the value
+        processedValue = value.name // Use filename as the value
       } else {
         // Fallback for unknown/future options: treat as 'exclude'
         // or handle differently if needed
-        console.warn(`Unknown fileHandling option: "${fileHandling}" for key "${key}". Excluding file.`);
-        return;
+        console.warn(`Unknown fileHandling option: "${fileHandling}" for key "${key}". Excluding file.`)
+        return
       }
     } else {
       // It's a string (standard FormDataEntryValue behavior)
-      processedValue = value;
+      processedValue = value
     }
 
     // --- Step 2: Add the processed value to the object, handling multiple values ---
     // Ensure we actually have a value to add (e.g., file wasn't excluded)
     if (processedValue === undefined) {
-        return;
+        return
     }
 
     if (key in obj) {
       // Key already exists
-      const currentValue = obj[key]; // Type: string | string[]
+      const currentValue = obj[key] // Type: string | string[]
 
       if (!Array.isArray(currentValue)) {
         // If it's not an array (it must be a string), convert it to an array
         // containing the old and new values.
-        obj[key] = [currentValue, processedValue];
+        obj[key] = [currentValue, processedValue]
       } else {
         // If it's already an array, push the new processed value
-        currentValue.push(processedValue);
+        currentValue.push(processedValue)
       }
     } else {
       // Key doesn't exist, add it with the processed value
-      obj[key] = processedValue;
+      obj[key] = processedValue
     }
-  });
+  })
 
-  return obj;
+  return obj
 }

@@ -1,9 +1,9 @@
-import { prisma } from "@/lib/database"
 import { getSessionFromCookies } from "@/lib/dashboard/auth"
 import logger from "@/lib/core/logger"
+import { prisma } from "@/lib/database"
 import { NextRequest } from "next/server"
 
-const log = logger.child({ path: "dashboard/api/transactional/[id]" })
+const log = logger.child({ module: "dashboard/api/transactional/[id]" })
 
 type PathParam = { params: Promise<{ id: string }> }
 

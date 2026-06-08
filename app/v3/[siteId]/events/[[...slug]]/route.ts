@@ -2,7 +2,7 @@ import logger from "@/lib/core/logger"
 import { fetchAnalyticsEvents, validateQueryParams } from "@/service/events-service/events-utils"
 import { NextRequest } from "next/server"
 
-const log = logger.child({ path: "app/v3/events" })
+const log = logger.child({ module: "app/v3/events" })
 type pathParam = { params: Promise<{ siteId: string, slug?: string[] }> }
 
 /**
@@ -28,7 +28,7 @@ async function fetchAnalyticsEvent(req: NextRequest, { params }: pathParam) {
         return Response.json(events, { status: 200 })
     } catch (e) {
         log.error(e, 'error when fetching analytics events')
-        const errorMessage = e instanceof Error ? e.message : "An error occurred";
+        const errorMessage = e instanceof Error ? e.message : "An error occurred"
         return Response.json({ message: errorMessage }, { status: 400 })
     }
 }

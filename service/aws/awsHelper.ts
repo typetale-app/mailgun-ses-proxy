@@ -16,7 +16,7 @@ let _sqsClient: SQSClient | null = null
 export function sesNewsletterClient() {
     if (_sesNewsletterClient) return _sesNewsletterClient
     if (!process.env.SES_REGION) throw "env variable SES_REGION not found"
-    const region = regions[Math.floor(Math.random() * regions.length)];
+    const region = regions[Math.floor(Math.random() * regions.length)]
     _sesNewsletterClient = new SESv2Client({ region })
     return _sesNewsletterClient
 }

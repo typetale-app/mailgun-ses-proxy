@@ -1,9 +1,10 @@
-import { prisma } from "@/lib/database"
 import { getSessionFromCookies } from "@/lib/dashboard/auth"
 import logger from "@/lib/core/logger"
+import { prisma } from "@/lib/database"
+import { parsePaginationParams } from "@/lib/utils"
 import { NextRequest } from "next/server"
 
-const log = logger.child({ path: "dashboard/api/newsletters/[id]" })
+const log = logger.child({ module: "dashboard/api/newsletters/[id]" })
 
 type PathParam = { params: Promise<{ id: string }> }
 
@@ -16,8 +17,7 @@ export async function GET(req: NextRequest, { params }: PathParam) {
 
         const { id } = await params
         const searchParams = req.nextUrl.searchParams
-        const page = Math.max(1, parseInt(searchParams.get("page") || "1"))
-        const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "20")))
+        const { page, limit } = parsePaginationParams(searchParams)
 
         const batch = await prisma.newsletterBatch.findUnique({
             where: { id },

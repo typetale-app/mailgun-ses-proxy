@@ -1,8 +1,8 @@
-import { prisma } from "@/lib/database"
 import { verifyPassword, createSession, setSessionCookie, ensureDefaultUser, hashPassword } from "@/lib/dashboard/auth"
 import logger from "@/lib/core/logger"
+import { prisma } from "@/lib/database"
 
-const log = logger.child({ path: "dashboard/api/login" })
+const log = logger.child({ module: "dashboard/api/login" })
 
 export async function POST(req: Request) {
     try {

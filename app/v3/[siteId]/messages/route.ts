@@ -4,7 +4,7 @@ import logger from "@/lib/core/logger"
 import { addNewsletterToQueue } from "@/service/newsletter-service"
 import { MailgunMessage } from "@/types/mailgun"
 
-const log = logger.child({ path: "app:v3:messages" })
+const log = logger.child({ module: "app:v3:messages" })
 type pathParam = { params: Promise<{ siteId: string }> }
 
 /**

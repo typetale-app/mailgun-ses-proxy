@@ -1,7 +1,7 @@
-import logger from "@/lib/core/logger";
-import { getNewsletterUsage } from "@/service/stats-service";
+import logger from "@/lib/core/logger"
+import { getNewsletterUsage } from "@/service/stats-service"
 
-const log = logger.child({ path: "app/stats/[action]" })
+const log = logger.child({ module: "app/stats/[action]" })
 
 type pathParam = { params: Promise<{ action: string }> }
 
