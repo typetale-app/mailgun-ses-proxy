@@ -6,7 +6,7 @@ function resolveLogLevel() {
     return process.env.NODE_ENV != "production" ? "debug" : "info"
 }
 
-const destination = pino.destination({ sync: false, minLength: 4096 })
+const destination = pino.destination({ sync: false, maxLength: 1024 })
 
 const logger = pino(
     { level: resolveLogLevel() },
