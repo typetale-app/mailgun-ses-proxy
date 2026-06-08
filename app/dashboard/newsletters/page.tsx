@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { cn, formatRelativeTime } from "@/lib/utils"
+import { cn, formatRelativeTime } from "@/lib/utils/web"
 
 interface Newsletter {
     id: string

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 /**
  * Tests covering all 10 audit findings.
@@ -13,7 +13,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 vi.unmock('@aws-sdk/client-sqs')
 vi.unmock('@aws-sdk/client-sesv2')
 vi.unmock('@/service/newsletter-service')
-vi.unmock('@/lib/core/aws-utils')
+vi.unmock('@/lib/email/events')
 
 describe('Issue 1: AWS client singletons', () => {
   beforeEach(() => {
@@ -214,7 +214,7 @@ describe('Issue 4: Invalid messages deleted from SQS', () => {
 describe('Issue 5: parseNotificationEvent timestamp', () => {
   it('should use mail.timestamp for non-open events instead of new Date()', async () => {
     vi.resetModules()
-    const { parseNotificationEvent } = await import('@/lib/core/aws-utils')
+    const { parseNotificationEvent } = await import('@/lib/email/events')
 
     const mailTimestamp = '2025-06-15T10:30:00Z'
     const event = JSON.stringify({
@@ -232,7 +232,7 @@ describe('Issue 5: parseNotificationEvent timestamp', () => {
 
   it('should use open.timestamp for Open events', async () => {
     vi.resetModules()
-    const { parseNotificationEvent } = await import('@/lib/core/aws-utils')
+    const { parseNotificationEvent } = await import('@/lib/email/events')
 
     const openTimestamp = '2025-06-15T12:00:00Z'
     const event = JSON.stringify({
@@ -355,7 +355,7 @@ describe('Issue 9: authentication malformed header', () => {
       },
     }))
 
-    const { authentication } = await import('@/lib/authentication/index')
+    const { authentication } = await import('@/lib/auth/api')
     // Should not throw, should return false
     const result = await authentication('BearerNoSpace')
     expect(result).toBe(false)
@@ -368,7 +368,7 @@ describe('Issue 9: authentication malformed header', () => {
       },
     }))
 
-    const { authentication } = await import('@/lib/authentication/index')
+    const { authentication } = await import('@/lib/auth/api')
     const result = await authentication('')
     expect(result).toBe(false)
   })
@@ -382,7 +382,7 @@ describe('Issue 10: timing-safe API key comparison', () => {
     const fs = await import('fs')
     const path = await import('path')
     const authSource = fs.readFileSync(
-      path.resolve(__dirname, '../lib/authentication/index.ts'),
+      path.resolve(__dirname, '../lib/auth/api.ts'),
       'utf-8'
     )
     // Should use timingSafeEqual for constant-time comparison

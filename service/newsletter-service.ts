@@ -1,10 +1,10 @@
 import { SendEmailCommand } from "@aws-sdk/client-sesv2"
 import { Message, SendMessageCommand } from "@aws-sdk/client-sqs"
 import { randomUUID } from "node:crypto"
-import { PreparedEmail, preparePayload } from "../lib/core/aws-utils"
-import { safeStringify } from "../lib/core/common"
+import { PreparedEmail, preparePayload } from "../lib/email/events"
+import { safeStringify } from "../lib/utils/common"
 import logger from "../lib/core/logger"
-import { TaskQueue } from "../lib/task-queue"
+import { TaskQueue } from "../lib/queue"
 import { MailgunMessage } from "../types/mailgun"
 import { QUEUE_URL, sesNewsletterClient, sqsClient } from "./aws/awsHelper"
 import {

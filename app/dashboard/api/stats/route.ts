@@ -1,4 +1,4 @@
-import { getSessionFromCookies } from "@/lib/dashboard/auth"
+import { getSessionFromCookies } from "@/lib/auth/dashboard"
 import logger from "@/lib/core/logger"
 import { prisma } from "@/lib/database"
 

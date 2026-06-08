@@ -1,5 +1,5 @@
 import { ApiResponse } from "@/lib/api-response"
-import { formDataToObject } from "@/lib/core/common"
+import { formDataToObject } from "@/lib/utils/common"
 import logger from "@/lib/core/logger"
 import { addNewsletterToQueue } from "@/service/newsletter-service"
 import { MailgunMessage } from "@/types/mailgun"

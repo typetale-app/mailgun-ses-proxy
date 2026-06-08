@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TaskQueue } from "../../lib/task-queue"; // Updated import
+import { TaskQueue } from "../../lib/queue"; // Updated import
 
 describe("TaskQueue Class", () => {
   const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));

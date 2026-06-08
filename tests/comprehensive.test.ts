@@ -7,7 +7,7 @@ import { sendSystemMail } from "@/service/transaction-email-service"
 import { getNewsletterUsage } from "@/service/stats-service"
 import { ApiResponse } from "@/lib/api-response"
 import { NextRequest } from "next/server"
-import { formDataToObject } from "@/lib/core/common"
+import { formDataToObject } from "@/lib/utils/common"
 import { ValidationService } from "@/service/validation-service/validation"
 import { ErrorHandler } from "@/service/error-handler/error-handler"
 

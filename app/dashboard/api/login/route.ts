@@ -1,4 +1,4 @@
-import { verifyPassword, createSession, setSessionCookie, ensureDefaultUser, hashPassword } from "@/lib/dashboard/auth"
+import { verifyPassword, createSession, setSessionCookie, ensureDefaultUser, hashPassword } from "@/lib/auth/dashboard"
 import logger from "@/lib/core/logger"
 import { prisma } from "@/lib/database"
 

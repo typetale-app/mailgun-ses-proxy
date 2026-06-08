@@ -6,7 +6,7 @@ import { addNewsletterToQueue } from '@/service/newsletter-service'
 import { sendSystemMail } from '@/service/transaction-email-service'
 import { getNewsletterUsage } from '@/service/stats-service'
 import { NextRequest } from 'next/server'
-import { formDataToObject } from '@/lib/core/common'
+import { formDataToObject } from '@/lib/utils/common'
 
 describe('Performance Edge Cases', () => {
   beforeEach(() => {

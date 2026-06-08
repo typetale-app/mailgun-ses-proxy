@@ -1,4 +1,4 @@
-import { clearSessionCookie } from "@/lib/dashboard/auth"
+import { clearSessionCookie } from "@/lib/auth/dashboard"
 import logger from "@/lib/core/logger"
 
 const log = logger.child({ module: "dashboard/api/logout" })

@@ -1,4 +1,4 @@
-import { createEventProcessor } from "../../lib/core/event-processor"
+import { createEventProcessor } from "../../lib/email/processor"
 import { getNewsletterMessage, saveNewsletterNotification } from "../database/db"
 
 /**

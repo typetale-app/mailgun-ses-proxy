@@ -1,8 +1,8 @@
 import { Message } from "@aws-sdk/client-sqs"
-import { NotificationEvent, parseNotificationEvent } from "./aws-utils"
-import logger from "./logger"
+import { NotificationEvent, parseNotificationEvent } from "./events"
+import logger from "@/lib/core/logger"
 
-const log = logger.child({ module: "event-processor" })
+const log = logger.child({ module: "email/processor" })
 
 interface EventProcessorConfig {
     name: string

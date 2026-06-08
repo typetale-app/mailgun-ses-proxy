@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { ApiResponse } from '@/lib/api-response'
-import { formDataToObject } from '@/lib/core/common'
+import { formDataToObject } from '@/lib/utils/common'
 import { ValidationService } from '@/service/validation-service/validation'
 import { ErrorHandler } from '@/service/error-handler/error-handler'
 

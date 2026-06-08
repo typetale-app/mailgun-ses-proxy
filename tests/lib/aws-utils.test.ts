@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { parseNotificationEvent } from '@/lib/core/aws-utils'
+import { parseNotificationEvent } from '@/lib/email/events'
 
 function buildRawEvent(
     eventType: string,

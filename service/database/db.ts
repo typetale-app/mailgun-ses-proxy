@@ -1,5 +1,5 @@
-import { NotificationEvent } from "../../lib/core/aws-utils"
-import { safeStringify } from "../../lib/core/common"
+import { NotificationEvent } from "../../lib/email/events"
+import { safeStringify } from "../../lib/utils/common"
 import { prisma } from "../../lib/database"
 import { MailgunMessage } from "../../types/mailgun"
 export { prisma }

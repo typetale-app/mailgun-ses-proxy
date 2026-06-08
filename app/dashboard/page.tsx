@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { cn, formatRelativeTime } from "@/lib/utils"
+import { cn, formatRelativeTime } from "@/lib/utils/web"
 import { AlertCircle, ArrowUpRight, CheckCircle2, Inbox, Loader2, Mail, RefreshCw, ShieldAlert, TrendingUp, Wifi, WifiOff } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 

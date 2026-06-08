@@ -1,4 +1,4 @@
-import logger from "../../lib/core/logger"
+import logger from "@/lib/core/logger"
 
 /** Types & Interfaces */
 export type ItemFn<T = any> = () => Promise<T>

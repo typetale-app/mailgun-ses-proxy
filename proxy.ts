@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server"
 import { NextResponse } from "next/server"
-import { authentication } from "./lib/authentication"
+import { authentication } from "./lib/auth/api"
 import logger from "./lib/core/logger"
 
 const log = logger.child({ module: "middleware" })
@@ -52,8 +52,8 @@ async function handleDashboardAuth(request: NextRequest) {
 
     // If no token, either 401 for API or redirect for UI
     if (!token) {
-        return isApiRequest 
-            ? Response.json({ error: "authentication required" }, { status: 401 }) 
+        return isApiRequest
+            ? Response.json({ error: "authentication required" }, { status: 401 })
             : NextResponse.redirect(loginUrl)
     }
 
@@ -71,8 +71,8 @@ async function handleDashboardAuth(request: NextRequest) {
         }
     } catch (error) {
         const errorMsg = error instanceof Error ? error.message.toLowerCase() : "invalid session"
-        return isApiRequest 
-            ? Response.json({ error: errorMsg }, { status: 401 }) 
+        return isApiRequest
+            ? Response.json({ error: errorMsg }, { status: 401 })
             : NextResponse.redirect(loginUrl)
     }
 
@@ -84,7 +84,7 @@ async function handleDashboardAuth(request: NextRequest) {
  */
 async function handleApiAuth(request: NextRequest) {
     const authHeader = request.headers.get("authorization")
-    
+
     if (authHeader && await authentication(authHeader)) {
         return NextResponse.next()
     }

@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { cn, formatRelativeTime } from "@/lib/utils"
+import { cn, formatRelativeTime } from "@/lib/utils/web"
 import {
     AlertCircle,
     Calendar,

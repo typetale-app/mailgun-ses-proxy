@@ -3,14 +3,25 @@ dotenv.config()
 
 import { createServer, IncomingMessage, ServerResponse } from "http"
 import next from "next"
-import logger from "./lib/core/logger"
-
-import { processNewsletterEventsQueue, processNewsletterQueue, processSystemEventsQueue } from "./service/background-process"
+import logger, { flushLogger } from "./lib/core/logger"
 import { requestShutdown } from "./lib/core/sqs-worker"
-import { flushLogger } from "./lib/core/logger"
+import { processNewsletterEventsQueue, processNewsletterQueue, processSystemEventsQueue } from "./service/background-process"
+
+// ── Config ───────────────────────────────────────────────────────────────────
+
+const PORT = parseInt(process.env.PORT || "3000")
+const DEV = process.env.NODE_ENV !== "production"
+const SHUTDOWN_GRACE_MS = parseInt(process.env.SHUTDOWN_GRACE_MS || "10000")
+
+// ── Background workers ──────────────────────────────────────────────────────
+
+const WORKERS = [
+    { name: "newsletter-sender", fn: processNewsletterQueue },
+    { name: "newsletter-events", fn: processNewsletterEventsQueue },
+    { name: "system-events", fn: processSystemEventsQueue },
+]
 
 // ── Process-level error handlers ─────────────────────────────────────────────
-// Prevent silent crashes from stray promise rejections or uncaught exceptions.
 
 process.on('unhandledRejection', (reason) => {
     logger.error({ err: reason }, 'Unhandled promise rejection')
@@ -22,22 +33,17 @@ process.on('uncaughtException', (err) => {
 })
 
 // ── Graceful shutdown ────────────────────────────────────────────────────────
-// On SIGTERM/SIGINT (e.g. Kubernetes pod termination), signal workers to stop
-// polling. In-flight handler calls are allowed to finish. After a grace period
-// the process exits regardless, so we don't block pod shutdown forever.
 
-const SHUTDOWN_GRACE_MS = parseInt(process.env.SHUTDOWN_GRACE_MS || "10000")
 let shutdownInProgress = false
 
 function initiateShutdown(signal: string) {
     if (shutdownInProgress) return
     shutdownInProgress = true
+
     logger.info({ signal }, `${signal} received — draining workers (grace ${SHUTDOWN_GRACE_MS}ms)`)
     flushLogger()
     requestShutdown()
 
-    // Hard-stop fallback: if workers don't finish within the grace period,
-    // exit anyway so the container runtime is not forced to SIGKILL us.
     setTimeout(() => {
         logger.warn("Shutdown grace period expired — forcing exit")
         process.exit(1)
@@ -47,66 +53,38 @@ function initiateShutdown(signal: string) {
 process.on('SIGTERM', () => initiateShutdown('SIGTERM'))
 process.on('SIGINT', () => initiateShutdown('SIGINT'))
 
-// ── Server startup ───────────────────────────────────────────────────────────
+// ── HTTP server ──────────────────────────────────────────────────────────────
 
-// ── Process-level error handlers ─────────────────────────────────────────────
-// Prevent silent crashes from stray promise rejections or uncaught exceptions.
-
-process.on('unhandledRejection', (reason) => {
-    logger.error({ err: reason }, 'Unhandled promise rejection')
-})
-
-process.on('uncaughtException', (err) => {
-    logger.fatal({ err }, 'Uncaught exception — shutting down')
-    process.exit(1)
-})
-
-// ── Server startup ───────────────────────────────────────────────────────────
-
-const port = parseInt(process.env.PORT || "3000")
-const dev = process.env.NODE_ENV !== "production"
-
-const app = next({ dev })
+const app = next({ dev: DEV })
 const handle = app.getRequestHandler()
 
-const handler = (req: IncomingMessage, res: ServerResponse) => {
+function requestHandler(req: IncomingMessage, res: ServerResponse) {
     const baseURL = `http://${req.headers.host || 'localhost'}`
     const parsedUrl = new URL(req.url!, baseURL)
     handle(req, res, {
         pathname: parsedUrl.pathname,
-        query: Object.fromEntries(parsedUrl.searchParams)
+        query: Object.fromEntries(parsedUrl.searchParams),
     } as any)
 }
 
-app.prepare().then(() => {
-    createServer(handler).listen(port)
-    const type = dev ? "development" : process.env.NODE_ENV
-    logger.info(`> Server listening at http://localhost:${port} as ${type}`)
+// ── Startup ──────────────────────────────────────────────────────────────────
 
-    // Workers run as background loops. We wait for ALL of them to settle
-    // before exiting, so one crashing worker doesn't kill the others mid-flight.
-    const workerPromises = [
-        processNewsletterQueue()
-            .then(() => logger.error("newsletter-sender stopped unexpectedly"))
-            .catch((e) => { logger.error(e, "newsletter-sender crashed") }),
+function start() {
+    app.prepare().then(() => {
+        createServer(requestHandler).listen(PORT)
+        const type = DEV ? "development" : process.env.NODE_ENV
+        logger.info(`> Server listening at http://localhost:${PORT} as ${type}`)
 
-        processNewsletterEventsQueue()
-            .then(() => logger.error("newsletter-events stopped unexpectedly"))
-            .catch((e) => { logger.error(e, "newsletter-events crashed") }),
-
-        processSystemEventsQueue()
-            .then(() => logger.error("system-events stopped unexpectedly"))
-            .catch((e) => { logger.error(e, "system-events crashed") }),
-    ]
-
-    Promise.allSettled(workerPromises).then((results) => {
-        for (const r of results) {
-            if (r.status === "rejected") {
-                logger.error({ err: r.reason }, "Worker settled with rejection")
-            }
+        for (const worker of WORKERS) {
+            worker.fn()
+                .then(() => logger.error({ name: worker.name }, "Worker stopped unexpectedly — initiating shutdown"))
+                .catch((err) => logger.error({ name: worker.name, err }, "Worker crashed — initiating shutdown"))
+                .finally(() => initiateShutdown(worker.name))
         }
-        logger.error("All workers have stopped — exiting process")
+    }).catch((err) => {
+        logger.error(err, "Failed to start server")
         process.exit(1)
     })
+}
 
-}).catch((e) => { logger.error(e, "stopping the server."); process.exit(1) })
+start()
