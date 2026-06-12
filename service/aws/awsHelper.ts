@@ -24,7 +24,7 @@ export function sesNewsletterClient() {
 export const sesSystemClient = () => {
     if (_sesSystemClient) return _sesSystemClient
     const region = process.env.SES_TRANSACTIONAL_REGION || regions[0]
-    if (!region) throw "env SES_TRANSACTIONAL_REGION is not defined" 
+    if (!region) throw "env SES_TRANSACTIONAL_REGION is not defined"
     _sesSystemClient = new SESv2Client({ region })
     return _sesSystemClient
 }

@@ -1,4 +1,4 @@
-import { EventsProps, QueryParams } from "@/types/default"
+import { EventsProps, QueryParams } from "../../types/default"
 import { formatAsMailgunEvent } from "../../lib/email/events"
 import { prisma } from "../database/db"
 

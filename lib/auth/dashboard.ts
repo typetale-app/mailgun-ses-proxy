@@ -1,5 +1,5 @@
 import { cookies } from "next/headers"
-import { prisma } from "@/lib/database"
+import { prisma } from "../database"
 
 const COOKIE_NAME = "dashboard_token"
 const JWT_SECRET = process.env.DASHBOARD_JWT_SECRET || "mailgun-ses-proxy-dashboard-secret-change-me"

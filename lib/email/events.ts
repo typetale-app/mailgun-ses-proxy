@@ -1,7 +1,7 @@
-import { MailgunEvents, MailgunRecipientVariables } from "@/types/default"
+import { MailgunEvents, MailgunRecipientVariables } from "../../types/default"
 import { SendEmailRequest } from "@aws-sdk/client-sesv2"
 import { Prisma } from "../generated"
-import { replaceAll } from "@/lib/utils/common"
+import { replaceAll } from "../utils/common"
 
 function doSubstitution(inputText: string, substitutions: MailgunRecipientVariables[0]) {
     for (const key of Object.keys(substitutions)) {

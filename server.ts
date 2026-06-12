@@ -1,6 +1,3 @@
-import dotenv from 'dotenv'
-dotenv.config()
-
 import { createServer, IncomingMessage, ServerResponse } from "http"
 import next from "next"
 import logger, { flushLogger } from "./lib/core/logger"
@@ -36,16 +33,29 @@ process.on('uncaughtException', (err) => {
 
 let shutdownInProgress = false
 
-function initiateShutdown(signal: string) {
+function initiateShutdown(source: string, err?: unknown) {
     if (shutdownInProgress) return
     shutdownInProgress = true
 
-    logger.info({ signal }, `${signal} received — draining workers (grace ${SHUTDOWN_GRACE_MS}ms)`)
+    const isSignal = source === 'SIGTERM' || source === 'SIGINT'
+
+    if (isSignal) {
+        const msg = `Received ${source} — draining workers (grace ${SHUTDOWN_GRACE_MS}ms)`
+        logger.info({ signal: source }, msg)
+    } else {
+        const detail = err instanceof Error ? err.message : String(err ?? 'unknown reason')
+        const msg = `Worker "${source}" stopped — ${detail} (grace ${SHUTDOWN_GRACE_MS}ms)`
+        logger.error({ worker: source, err }, msg)
+        // Also write to stderr directly so the reason is never lost in async pino buffer
+        console.error(`[SHUTDOWN] ${msg}`)
+    }
+
     flushLogger()
     requestShutdown()
 
     setTimeout(() => {
         logger.warn("Shutdown grace period expired — forcing exit")
+        flushLogger()
         process.exit(1)
     }, SHUTDOWN_GRACE_MS).unref()
 }
@@ -77,9 +87,7 @@ function start() {
 
         for (const worker of WORKERS) {
             worker.fn()
-                .then(() => logger.error({ name: worker.name }, "Worker stopped unexpectedly — initiating shutdown"))
-                .catch((err) => logger.error({ name: worker.name, err }, "Worker crashed — initiating shutdown"))
-                .finally(() => initiateShutdown(worker.name))
+                .catch((err) => initiateShutdown(worker.name, err))
         }
     }).catch((err) => {
         logger.error(err, "Failed to start server")

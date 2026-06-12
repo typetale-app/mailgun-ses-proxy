@@ -1,5 +1,8 @@
 {
-    "watch": ["server.ts", ".env"],
-    "exec": "FORCE_COLOR=true ts-node --project tsconfig.server.json server.ts | pino-pretty -t -c",
+    "watch": [
+        "server.ts",
+        ".env"
+    ],
+    "exec": "FORCE_COLOR=true tsx --env-file-if-exists=.env server.ts | pino-pretty -t -c",
     "ext": "js ts"
 }

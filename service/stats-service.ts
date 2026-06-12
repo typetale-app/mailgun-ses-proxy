@@ -1,5 +1,5 @@
-import logger from "@/lib/core/logger"
-import { prisma } from "@/service/database/db"
+import logger from "../lib/core/logger"
+import { prisma } from "./database/db"
 
 const log = logger.child({ module: "service/stats-service" })
 

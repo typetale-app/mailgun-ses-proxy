@@ -1,5 +1,5 @@
-import logger from "@/lib/core/logger"
-import { prisma } from "@/service/database/db"
+import logger from "../lib/core/logger"
+import { prisma } from "./database/db"
 import { MessageTag, SendEmailCommand } from "@aws-sdk/client-sesv2"
 import { sesSystemClient } from "./aws/awsHelper"
 import { EmailPayload } from "./validation-service/validation"

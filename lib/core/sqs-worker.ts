@@ -24,6 +24,19 @@ export interface WorkerConfig {
     handler: (message: Message) => Promise<void>
 }
 
+/** Describes why a worker stopped. Thrown when the worker's promise settles. */
+export class WorkerStopError extends Error {
+    constructor(
+        public readonly workerName: string,
+        public readonly reason: 'circuit-breaker' | 'shutdown' | 'unknown',
+        public readonly lastError?: unknown,
+    ) {
+        const detail = lastError instanceof Error ? lastError.message : String(lastError ?? 'no error details')
+        super(`Worker "${workerName}" stopped (${reason}): ${detail}`)
+        this.name = 'WorkerStopError'
+    }
+}
+
 export async function startWorker(config: WorkerConfig): Promise<void> {
     const {
         name,
@@ -33,10 +46,16 @@ export async function startWorker(config: WorkerConfig): Promise<void> {
         handler,
     } = config
 
+    if (!queueUrl) {
+        throw new WorkerStopError(name, 'unknown', new Error(`Queue URL is not configured for worker "${name}"`))
+    }
+
     log.info({ name, queueUrl }, `Starting SQS worker: ${name}`)
     registerWorker(name)
 
     let consecutiveErrors = 0
+    let lastError: unknown = undefined
+    let stopReason: 'circuit-breaker' | 'shutdown' | 'unknown' = 'unknown'
 
     const consumer = Consumer.create({
         queueUrl,
@@ -88,17 +107,21 @@ export async function startWorker(config: WorkerConfig): Promise<void> {
         },
     })
 
-    attachLifecycleEvents(consumer, name, () => consecutiveErrors, (n) => { consecutiveErrors = n })
+    attachLifecycleEvents(consumer, name,
+        () => consecutiveErrors,
+        (n) => { consecutiveErrors = n },
+        (err) => { lastError = err },
+        () => { stopReason = 'circuit-breaker' },
+    )
 
     consumers.set(name, consumer)
     consumer.start()
 
-    return new Promise<void>((resolve) => {
+    return new Promise<void>((_, reject) => {
         consumer.on("stopped", () => {
-            log.info({ name }, `Consumer ${name} stopped`)
-            markWorkerDead(name, "stopped")
+            markWorkerDead(name, stopReason)
             consumers.delete(name)
-            resolve()
+            reject(new WorkerStopError(name, stopReason, lastError))
         })
     })
 }
@@ -108,18 +131,22 @@ function attachLifecycleEvents(
     name: string,
     getErrors: () => number,
     setErrors: (n: number) => void,
+    setLastError: (err: unknown) => void,
+    markCircuitBreaker: () => void,
 ): void {
     consumer.on("empty", () => heartbeat(name))
 
     consumer.on("error", (err) => {
         const count = getErrors() + 1
         setErrors(count)
+        setLastError(err)
         log.error(
             { name, err, consecutiveErrors: count },
             `SQS consumer error (${count}/${MAX_CONSECUTIVE_ERRORS})`,
         )
         if (count >= MAX_CONSECUTIVE_ERRORS) {
             log.error({ name }, "Circuit breaker tripped — stopping consumer")
+            markCircuitBreaker()
             consumer.stop()
         }
     })

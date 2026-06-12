@@ -1,5 +1,5 @@
 import { timingSafeEqual } from "crypto"
-import logger from "@/lib/core/logger"
+import logger from "../core/logger"
 
 const log = logger.child({ module: "service/authenticate" })
 
