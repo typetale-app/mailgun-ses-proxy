@@ -1,6 +1,6 @@
 import { createServer, IncomingMessage, ServerResponse } from "http"
 import next from "next"
-import logger, { flushLogger } from "./lib/core/logger"
+import logger from "./lib/core/logger"
 import { requestShutdown } from "./lib/core/sqs-worker"
 import { processNewsletterEventsQueue, processNewsletterQueue, processSystemEventsQueue } from "./service/background-process"
 
@@ -50,12 +50,10 @@ function initiateShutdown(source: string, err?: unknown) {
         console.error(`[SHUTDOWN] ${msg}`)
     }
 
-    flushLogger()
     requestShutdown()
 
     setTimeout(() => {
         logger.warn("Shutdown grace period expired — forcing exit")
-        flushLogger()
         process.exit(1)
     }, SHUTDOWN_GRACE_MS).unref()
 }

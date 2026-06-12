@@ -14,7 +14,7 @@ USER appuser
 
 # Copy package files and install dependencies
 COPY --chown=appuser:appgroup package.json package-lock.json* ./
-RUN npm ci
+RUN NODE_ENV=development npm ci
 
 # Copy the rest of the application code
 COPY --chown=appuser:appgroup . .

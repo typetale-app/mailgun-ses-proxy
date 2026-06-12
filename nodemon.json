@@ -3,6 +3,6 @@
         "server.ts",
         ".env"
     ],
-    "exec": "FORCE_COLOR=true tsx --env-file-if-exists=.env server.ts | pino-pretty -t -c",
+    "exec": "tsx --env-file-if-exists=.env server.ts | ./node_modules/.bin/bunyan",
     "ext": "js ts"
 }
