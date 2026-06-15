@@ -1,5 +1,5 @@
 import logger from "@/lib/core/logger"
-import { getNewsletterUsage } from "@/service/stats-service"
+import { newsletterService } from "@/service/newsletter-service"
 
 const log = logger.child({ module: "app/stats/[action]" })
 
@@ -10,7 +10,7 @@ export async function POST(req: Request, { params }: pathParam) {
         const input = (await req.json()) as { from: number; to: number; siteId: string }
         switch ((await params).action) {
             case "getNewsletterUsage":
-                const result = await getNewsletterUsage(input)
+                const result = await newsletterService.getUsage(input)
                 return Response.json(result)
             default:
                 return Response.json({ message: "Invalid action" }, { status: 400 })

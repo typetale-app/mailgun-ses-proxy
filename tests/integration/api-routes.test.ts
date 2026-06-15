@@ -2,9 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { POST as v3MessagesPost } from '@/app/v3/[siteId]/messages/route'
 import { POST as v1SendPost } from '@/app/v1/send/route'
 import { POST as statsPost } from '@/app/stats/[action]/route'
-import { addNewsletterToQueue } from '@/service/newsletter-service'
+import { newsletterService } from '@/service/newsletter-service'
 import { sendSystemMail } from '@/service/transaction-email-service'
-import { getNewsletterUsage } from '@/service/stats-service'
+import { emailService } from '@/service/email-service'
 import { NextRequest } from 'next/server'
 
 describe('API Routes Integration', () => {
@@ -28,7 +28,7 @@ describe('API Routes Integration', () => {
 
       const newsletterParams = Promise.resolve({ siteId: 'site-123' })
 
-      vi.mocked(addNewsletterToQueue).mockResolvedValue({
+      vi.mocked(newsletterService.addToQueue).mockResolvedValue({
         messageId: 'newsletter-msg-123',
         batchId: 'newsletter-batch-123',
       })
@@ -79,7 +79,7 @@ describe('API Routes Integration', () => {
 
       const statsParams = Promise.resolve({ action: 'getNewsletterUsage' })
 
-      vi.mocked(getNewsletterUsage).mockResolvedValue({
+      vi.mocked(emailService.getUsage).mockResolvedValue({
         status: 'ok',
         data: {
           forRange: {
@@ -115,7 +115,7 @@ describe('API Routes Integration', () => {
       const newsletterParams = Promise.resolve({ siteId: 'site-123' })
 
       const serviceError = new Error('Queue service unavailable')
-      vi.mocked(addNewsletterToQueue).mockRejectedValue(serviceError)
+      vi.mocked(newsletterService.addToQueue).mockRejectedValue(serviceError)
 
       // Act - Attempt to send newsletter
       const newsletterResponse = await v3MessagesPost(newsletterRequest, { params: newsletterParams })
@@ -158,7 +158,7 @@ describe('API Routes Integration', () => {
       const statsParams = Promise.resolve({ action: 'getNewsletterUsage' })
 
       const dbError = new Error('Database connection failed')
-      vi.mocked(getNewsletterUsage).mockRejectedValue(dbError)
+      vi.mocked(emailService.getUsage).mockRejectedValue(dbError)
 
       // Act - Attempt to get stats
       const statsResponse = await statsPost(statsRequest, { params: statsParams })
@@ -207,7 +207,7 @@ describe('API Routes Integration', () => {
       } as unknown as Request
       const statsParams = Promise.resolve({ action: 'getNewsletterUsage' })
 
-      vi.mocked(getNewsletterUsage).mockResolvedValue({
+      vi.mocked(emailService.getUsage).mockResolvedValue({
         status: 'ok',
         data: {
           forRange: { gte: new Date(), lte: new Date() },
@@ -238,7 +238,7 @@ describe('API Routes Integration', () => {
         formData: vi.fn().mockResolvedValue(mockFormData),
       } as unknown as Request
 
-      vi.mocked(addNewsletterToQueue).mockResolvedValue({
+      vi.mocked(newsletterService.addToQueue).mockResolvedValue({
         messageId: 'concurrent-msg-1',
         batchId: 'batch-concurrent',
       })
@@ -274,7 +274,7 @@ describe('API Routes Integration', () => {
         json: vi.fn().mockResolvedValue(statsPayload),
       } as unknown as Request
 
-      vi.mocked(getNewsletterUsage).mockResolvedValue({
+      vi.mocked(emailService.getUsage).mockResolvedValue({
         status: 'ok',
         data: {
           forRange: { gte: new Date(), lte: new Date() },

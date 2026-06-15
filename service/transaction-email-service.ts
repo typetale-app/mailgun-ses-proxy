@@ -1,63 +1,84 @@
+import { MessageTag, SendEmailCommand, SendEmailCommandOutput } from "@aws-sdk/client-sesv2"
 import logger from "../lib/core/logger"
-import { prisma } from "./database/db"
-import { MessageTag, SendEmailCommand } from "@aws-sdk/client-sesv2"
-import { sesSystemClient } from "./aws/awsHelper"
-import { EmailPayload } from "./validation-service/validation"
+import { prisma } from "./db-service"
+import { EmailPayload } from "./validation-service"
+import { awsService } from "./aws-service"
 
-const log = logger.child({ module: "service:transactional-email-service" })
+class TransactionalEmailService {
 
-function formatEmail(email: EmailPayload, tags: MessageTag[]) {
-    if (!process.env.TRANSACTIONAL_CONFIGURATION_SET_NAME) {
-        throw new Error("env variable TRANSACTIONAL_CONFIGURATION_SET_NAME is not defined")
+    private log = logger.child({ module: "service:transactional-email-service" })
+
+    constructor() {
+        if (!process.env.TRANSACTIONAL_CONFIGURATION_SET_NAME) {
+            throw new Error("env variable TRANSACTIONAL_CONFIGURATION_SET_NAME is not defined")
+        }
     }
-    return {
-        ConfigurationSetName: process.env.TRANSACTIONAL_CONFIGURATION_SET_NAME,
-        FromEmailAddress: email.from,
-        Destination: {
-            ToAddresses: email.to,
-        },
-        ReplyToAddresses: email.replyTo ? [email.replyTo] : [],
-        FeedbackForwardingEmailAddress: email.replyTo || email.from,
-        Content: {
-            Simple: {
-                Subject: {
-                    Data: email.subject,
-                },
-                Body: {
-                    Html: {
-                        Data: email.html,
+
+    formatEmail(email: EmailPayload, tags: MessageTag[]) {
+        return {
+            ConfigurationSetName: process.env.TRANSACTIONAL_CONFIGURATION_SET_NAME,
+            FromEmailAddress: email.from,
+            Destination: {
+                ToAddresses: email.to,
+            },
+            ReplyToAddresses: email.replyTo ? [email.replyTo] : [],
+            FeedbackForwardingEmailAddress: email.replyTo || email.from,
+            Content: {
+                Simple: {
+                    Subject: {
+                        Data: email.subject,
+                    },
+                    Body: {
+                        Html: {
+                            Data: email.html,
+                        },
                     },
                 },
             },
-        },
-        EmailTags: tags
+            EmailTags: tags
+        }
     }
-}
 
+    async sendMail(email: EmailPayload): Promise<SendEmailCommandOutput> {
+        const mail = this.formatEmail(email, [{ Name: 'transactional-email', Value: 'true' }])
+        const cmd = new SendEmailCommand(mail)
+        this.log.debug({ mail }, "sending email")
+        return awsService.sesSystemClient().send(cmd)
+    }
 
-export async function sendSystemMail(email: EmailPayload) {
-    if (!email.to) throw new Error("Email to address is required")
+    async saveSystemEmail(resp: SendEmailCommandOutput, email: EmailPayload) {
+        if (resp.MessageId) {
+            const { id } = await prisma.systemMails.create({
+                select: { id: true },
+                data: {
+                    messageId: resp.MessageId!,
+                    toEmail: email.to.join(","),
+                    fromEmail: email.from,
+                    subject: email.subject,
+                    contents: email.html,
+                }
+            })
+            this.log.debug({ email }, "email saved")
+            return { id }
+        }
+        this.log.error({ resp, email }, "email not saved")
+        throw new Error("Email not saved")
+    }
 
-    const mail = formatEmail(email, [{ Name: 'transactional-email', Value: 'true' }])
-    const cmd = new SendEmailCommand(mail)
-    const resp = await sesSystemClient().send(cmd)
-
-    if (resp.MessageId) {
-        const { id } = await prisma.systemMails.create({
-            select: { id: true },
-            data: {
-                messageId: resp.MessageId,
-                toEmail: email.to.join(","),
-                fromEmail: email.from,
-                subject: email.subject,
-                contents: email.html,
-            }
-        })
-        log.info({ resp, to: email.to }, "sending system mail, SES response")
+    async sendSystemMail(email: EmailPayload) {
+        if (!email.to) throw new Error("Email to address is required")
+        const resp = await this.sendMail(email)
+        const { id } = await this.saveSystemEmail(resp, email)
+        this.log.info({ resp, to: email.to }, "system mail sent")
         return { messageId: resp.MessageId, dbId: id }
     }
-
-    log.error({ resp, email }, "failed to send system mail")
-    throw new Error("Failed to send email")
 }
+
+export const transactionalEmailService = new TransactionalEmailService()
+
+
+
+
+
+
 

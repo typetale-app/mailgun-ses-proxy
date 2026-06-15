@@ -2,9 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { POST as v3MessagesPost } from '@/app/v3/[siteId]/messages/route'
 import { POST as v1SendPost } from '@/app/v1/send/route'
 import { POST as statsPost } from '@/app/stats/[action]/route'
-import { addNewsletterToQueue } from '@/service/newsletter-service'
+import { newsletterService } from '@/service/newsletter-service'
 import { sendSystemMail } from '@/service/transaction-email-service'
-import { getNewsletterUsage } from '@/service/stats-service'
+import { emailService } from '@/service/email-service'
 import { NextRequest } from 'next/server'
 import { formDataToObject } from '@/lib/utils/common'
 
@@ -29,7 +29,7 @@ describe('Performance Edge Cases', () => {
         } as unknown as Request
       })
 
-      vi.mocked(addNewsletterToQueue).mockImplementation(async (data) => ({
+      vi.mocked(newsletterService.addToQueue).mockImplementation(async (data) => ({
         messageId: `msg-${data['v:email-id']}`,
         batchId: data['v:email-id'],
       }))
@@ -251,7 +251,7 @@ describe('Performance Edge Cases', () => {
     it('should handle slow network conditions', async () => {
       const slowNetworkDelay = 100 // 100ms delay
 
-      vi.mocked(addNewsletterToQueue).mockImplementation(async (data) => {
+      vi.mocked(newsletterService.addToQueue).mockImplementation(async (data) => {
         // Simulate slow network
         await new Promise(resolve => setTimeout(resolve, slowNetworkDelay))
         return {
@@ -337,7 +337,7 @@ describe('Performance Edge Cases', () => {
         } as unknown as Request
       })
 
-      vi.mocked(getNewsletterUsage).mockImplementation(async (input) => {
+      vi.mocked(emailService.getUsage).mockImplementation(async (input) => {
         // Simulate file I/O delay
         await new Promise(resolve => setTimeout(resolve, Math.random() * 10))
         return {
@@ -371,7 +371,7 @@ describe('Performance Edge Cases', () => {
     it('should handle thread pool exhaustion simulation', async () => {
       const cpuIntensiveTasks = 50
 
-      vi.mocked(addNewsletterToQueue).mockImplementation(async (data) => {
+      vi.mocked(newsletterService.addToQueue).mockImplementation(async (data) => {
         // Simulate CPU-intensive work
         const start = Date.now()
         while (Date.now() - start < 10) {
@@ -431,7 +431,7 @@ describe('Performance Edge Cases', () => {
           json: vi.fn().mockResolvedValue(statsPayload),
         } as unknown as Request
 
-        vi.mocked(getNewsletterUsage).mockImplementation(async (input) => {
+        vi.mocked(emailService.getUsage).mockImplementation(async (input) => {
           // Simulate cache hit/miss
           const cacheKey = input.siteId
           if (results.has(cacheKey)) {
@@ -478,7 +478,7 @@ describe('Performance Edge Cases', () => {
           formData: vi.fn().mockResolvedValue(mockFormData),
         } as unknown as Request
 
-        vi.mocked(addNewsletterToQueue).mockImplementation(async (data) => {
+        vi.mocked(newsletterService.addToQueue).mockImplementation(async (data) => {
           const op = (data as any).operation
           operationCounts.set(op, (operationCounts.get(op) || 0) + 1)
           

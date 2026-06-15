@@ -1,155 +1,190 @@
-import { MessageSystemAttributeName, QueueAttributeName, type Message } from "@aws-sdk/client-sqs"
-import { Consumer } from "sqs-consumer"
-import { sqsClient } from "../../service/aws/awsHelper"
-import logger from "./logger"
-import { heartbeat, markWorkerDead, registerWorker } from "./worker-registry"
-
-const log = logger.child({ module: "sqs-worker" })
-
-const MAX_RECEIVE_COUNT = 3
-const MAX_CONSECUTIVE_ERRORS = 50
-
-const consumers = new Map<string, Consumer>()
-
-export function requestShutdown(): void {
-    log.info("Shutdown requested — stopping all SQS consumers")
-    consumers.forEach((consumer) => consumer.stop())
-}
+import { MessageSystemAttributeName, QueueAttributeName, type Message } from "@aws-sdk/client-sqs";
+import { Consumer } from "sqs-consumer";
+import { awsService } from "../../service/aws-service";
+import logger from "./logger";
+import { WorkerRegistry } from "./worker-registry";
 
 export interface WorkerConfig {
-    name: string
-    queueUrl: string
-    visibilityTimeout?: number
-    waitTimeSeconds?: number
-    handler: (message: Message) => Promise<void>
+    name: string;
+    queueUrl: string;
+    visibilityTimeout?: number;
+    waitTimeSeconds?: number;
+    handler: (message: Message) => Promise<void>;
 }
+
+export type WorkerStopReason = 'circuit-breaker' | 'shutdown' | 'unknown';
 
 /** Describes why a worker stopped. Thrown when the worker's promise settles. */
 export class WorkerStopError extends Error {
     constructor(
         public readonly workerName: string,
-        public readonly reason: 'circuit-breaker' | 'shutdown' | 'unknown',
+        public readonly reason: WorkerStopReason,
         public readonly lastError?: unknown,
     ) {
-        const detail = lastError instanceof Error ? lastError.message : String(lastError ?? 'no error details')
-        super(`Worker "${workerName}" stopped (${reason}): ${detail}`)
-        this.name = 'WorkerStopError'
+        const detail = lastError instanceof Error ? lastError.message : String(lastError ?? 'no error details');
+        super(`Worker "${workerName}" stopped (${reason}): ${detail}`);
+        this.name = 'WorkerStopError';
     }
 }
 
-export async function startWorker(config: WorkerConfig): Promise<void> {
-    const {
-        name,
-        queueUrl,
-        visibilityTimeout = 30,
-        waitTimeSeconds = 20,
-        handler,
-    } = config
+/**
+ * Individual instance of an SQS Consumer Worker
+ */
+export class SQSWorker {
+    private consumer: Consumer | null = null;
+    private consecutiveErrors = 0;
+    private lastError: unknown = undefined;
+    private stopReason: WorkerStopReason = 'unknown';
 
-    if (!queueUrl) {
-        throw new WorkerStopError(name, 'unknown', new Error(`Queue URL is not configured for worker "${name}"`))
+    private readonly MAX_RECEIVE_COUNT = 3;
+    private readonly MAX_CONSECUTIVE_ERRORS = 50;
+
+    private readonly log = logger.child({ module: "SQSWorker" });
+
+    constructor(private readonly config: WorkerConfig) {
+        if (!this.config.queueUrl) {
+            throw new WorkerStopError(
+                this.config.name,
+                'unknown',
+                new Error(`Queue URL is not configured for worker "${this.config.name}"`)
+            );
+        }
     }
 
-    log.info({ name, queueUrl }, `Starting SQS worker: ${name}`)
-    registerWorker(name)
+    /**
+     * Spawns the consumer and returns a promise that rejects when the consumer stops.
+     */
+    public start(): Promise<void> {
+        const { name, queueUrl, visibilityTimeout = 30, waitTimeSeconds = 20 } = this.config;
 
-    let consecutiveErrors = 0
-    let lastError: unknown = undefined
-    let stopReason: 'circuit-breaker' | 'shutdown' | 'unknown' = 'unknown'
+        this.log.info({ name, queueUrl }, `Starting SQS worker: ${name}`);
+        WorkerRegistry.register(name)
 
-    const consumer = Consumer.create({
-        queueUrl,
-        sqs: sqsClient(),
-        batchSize: 1,
-        visibilityTimeout,
-        waitTimeSeconds,
-        attributeNames: ["All"] as QueueAttributeName[],
-        messageAttributeNames: ["All"],
-        messageSystemAttributeNames: [
-            MessageSystemAttributeName.SentTimestamp,
-            MessageSystemAttributeName.ApproximateReceiveCount,
-        ],
+        this.consumer = Consumer.create({
+            queueUrl,
+            sqs: awsService.sqsClient(),
+            batchSize: 1,
+            visibilityTimeout,
+            waitTimeSeconds,
+            attributeNames: ["All"] as QueueAttributeName[],
+            messageAttributeNames: ["All"],
+            messageSystemAttributeNames: [
+                MessageSystemAttributeName.SentTimestamp,
+                MessageSystemAttributeName.ApproximateReceiveCount,
+            ],
+            handleMessageBatch: (messages) => this.handleMessageBatch(messages)
+        })
 
-        handleMessageBatch: async (messages) => {
-            const acknowledged: Message[] = []
-            let anyHandlerSuccess = false
+        this.attachLifecycleEvents()
+        this.consumer.start()
 
-            for (const msg of messages) {
-                const receiveCount = parseInt(
-                    msg.Attributes?.ApproximateReceiveCount ?? "0",
-                    10,
-                )
+        return new Promise<void>((_, reject) => {
+            this.consumer?.on("stopped", () => {
+                WorkerRegistry.markDead(name, this.stopReason)
+                reject(new WorkerStopError(name, this.stopReason, this.lastError))
+            })
+        })
+    }
 
-                if (receiveCount > MAX_RECEIVE_COUNT) {
-                    log.error(
-                        { name, messageId: msg.MessageId, receiveCount },
-                        "Message exceeded max receive count — discarding",
-                    )
-                    acknowledged.push(msg)
-                    continue
-                }
+    /**
+     * Gracefully stop this specific consumer instance
+     */
+    public stop(reason: WorkerStopReason = 'shutdown'): void {
+        this.stopReason = reason;
+        this.consumer?.stop();
+    }
 
-                try {
-                    await handler(msg)
-                    acknowledged.push(msg)
-                    anyHandlerSuccess = true
-                } catch (err) {
-                    log.error(
-                        { name, messageId: msg.MessageId, receiveCount, err },
-                        "Handler error — message left in SQS for retry",
-                    )
-                }
+    private async handleMessageBatch(messages: Message[]): Promise<Message[]> {
+        const acknowledged: Message[] = [];
+        let anyHandlerSuccess = false;
+
+        for (const msg of messages) {
+            const receiveCount = parseInt(msg.Attributes?.ApproximateReceiveCount ?? "0", 10);
+
+            if (receiveCount > this.MAX_RECEIVE_COUNT) {
+                this.log.error(
+                    { name: this.config.name, messageId: msg.MessageId, receiveCount },
+                    "Message exceeded max receive count — discarding",
+                );
+                acknowledged.push(msg);
+                continue;
             }
 
-            if (anyHandlerSuccess) heartbeat(name)
-
-            return acknowledged
-        },
-    })
-
-    attachLifecycleEvents(consumer, name,
-        () => consecutiveErrors,
-        (n) => { consecutiveErrors = n },
-        (err) => { lastError = err },
-        () => { stopReason = 'circuit-breaker' },
-    )
-
-    consumers.set(name, consumer)
-    consumer.start()
-
-    return new Promise<void>((_, reject) => {
-        consumer.on("stopped", () => {
-            markWorkerDead(name, stopReason)
-            consumers.delete(name)
-            reject(new WorkerStopError(name, stopReason, lastError))
-        })
-    })
-}
-
-function attachLifecycleEvents(
-    consumer: Consumer,
-    name: string,
-    getErrors: () => number,
-    setErrors: (n: number) => void,
-    setLastError: (err: unknown) => void,
-    markCircuitBreaker: () => void,
-): void {
-    consumer.on("empty", () => heartbeat(name))
-
-    consumer.on("error", (err) => {
-        const count = getErrors() + 1
-        setErrors(count)
-        setLastError(err)
-        log.error(
-            { name, err, consecutiveErrors: count },
-            `SQS consumer error (${count}/${MAX_CONSECUTIVE_ERRORS})`,
-        )
-        if (count >= MAX_CONSECUTIVE_ERRORS) {
-            log.error({ name }, "Circuit breaker tripped — stopping consumer")
-            markCircuitBreaker()
-            consumer.stop()
+            try {
+                await this.config.handler(msg);
+                acknowledged.push(msg);
+                anyHandlerSuccess = true;
+            } catch (err) {
+                this.log.error(
+                    { name: this.config.name, messageId: msg.MessageId, receiveCount, err },
+                    "Handler error — message left in SQS for retry",
+                );
+            }
         }
-    })
 
-    consumer.on("message_processed", () => setErrors(0))
+        if (anyHandlerSuccess) {
+            WorkerRegistry.heartbeat(this.config.name);
+        }
+
+        return acknowledged;
+    }
+
+    private attachLifecycleEvents(): void {
+        if (!this.consumer) return;
+        const { name } = this.config;
+
+        this.consumer.on("empty", () => WorkerRegistry.heartbeat(name));
+
+        this.consumer.on("error", (err) => {
+            this.consecutiveErrors++;
+            this.lastError = err;
+
+            this.log.error(
+                { name, err, consecutiveErrors: this.consecutiveErrors },
+                `SQS consumer error (${this.consecutiveErrors}/${this.MAX_CONSECUTIVE_ERRORS})`,
+            );
+
+            if (this.consecutiveErrors >= this.MAX_CONSECUTIVE_ERRORS) {
+                this.log.error({ name }, "Circuit breaker tripped — stopping consumer");
+                this.stop('circuit-breaker');
+            }
+        });
+
+        this.consumer.on("message_processed", () => {
+            this.consecutiveErrors = 0;
+        });
+    }
 }
+
+/**
+ * Orchestrator to manage global consumer states and shutdowns
+ */
+export class SQSWorkerManager {
+    private static workers = new Map<string, SQSWorker>();
+    private static readonly log = logger.child({ module: "SQSWorkerManager" });
+
+    /**
+     * Starts a worker and handles its lifecycle management.
+     */
+    public static async startWorker(config: WorkerConfig): Promise<void> {
+        const worker = new SQSWorker(config);
+        this.workers.set(config.name, worker);
+        try {
+            await worker.start();
+        } finally {
+            this.workers.delete(config.name);
+        }
+    }
+
+    /**
+     * Requests graceful shutdown for all registered workers.
+     */
+    public static requestShutdown(): void {
+        this.log.info("Shutdown requested — stopping all SQS consumers");
+        this.workers.forEach((worker) => worker.stop('shutdown'));
+    }
+}
+
+// Export legacy standalone functions if you don't want to break existing imports elsewhere
+export const startWorker = SQSWorkerManager.startWorker.bind(SQSWorkerManager);
+export const requestShutdown = SQSWorkerManager.requestShutdown.bind(SQSWorkerManager);

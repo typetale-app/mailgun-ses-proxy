@@ -1,5 +1,6 @@
 import logger from "@/lib/core/logger"
-import { fetchAnalyticsEvents, validateQueryParams } from "@/service/events-service/events-utils"
+import { eventsService } from "@/service/events-service"
+
 import { NextRequest } from "next/server"
 
 const log = logger.child({ module: "app/v3/events" })
@@ -21,9 +22,8 @@ type pathParam = { params: Promise<{ siteId: string, slug?: string[] }> }
 async function fetchAnalyticsEvent(req: NextRequest, { params }: pathParam) {
     const { siteId, slug } = await params
     try {
-        const queryParams = validateQueryParams(req.nextUrl.searchParams)
-        log.debug({ queryParams, siteId, slug }, "query params")
-        const events = await fetchAnalyticsEvents(queryParams, siteId, req.url)
+        const queryParams = eventsService.parseEventQuery(req.nextUrl.searchParams)
+        const events = await eventsService.getEvents(queryParams, siteId, req.url)
         log.debug({ count: events.items.length, siteId, slug }, "analytics events count")
         return Response.json(events, { status: 200 })
     } catch (e) {

@@ -2,9 +2,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { POST as v3MessagesPost } from "@/app/v3/[siteId]/messages/route"
 import { POST as v1SendPost } from "@/app/v1/send/route"
 import { POST as statsPost } from "@/app/stats/[action]/route"
-import { addNewsletterToQueue } from "@/service/newsletter-service"
+import { newsletterService } from "@/service/newsletter-service"
 import { sendSystemMail } from "@/service/transaction-email-service"
-import { getNewsletterUsage } from "@/service/stats-service"
+import { emailService } from "@/service/email-service"
 import { ApiResponse } from "@/lib/api-response"
 import { NextRequest } from "next/server"
 import { formDataToObject } from "@/lib/utils/common"
@@ -32,7 +32,7 @@ describe("Comprehensive API Test Suite", () => {
 
             const params = Promise.resolve({ siteId: "site-123" })
 
-            vi.mocked(addNewsletterToQueue).mockResolvedValue({
+            vi.mocked(newsletterService.addToQueue).mockResolvedValue({
                 messageId: "msg-123",
                 batchId: "batch-123",
             })
@@ -44,7 +44,7 @@ describe("Comprehensive API Test Suite", () => {
             // Assert
             expect(response.status).toBe(200)
             expect(result.id).toEqual("batch-123")
-            expect(addNewsletterToQueue).toHaveBeenCalledWith(
+            expect(newsletterService.addToQueue).toHaveBeenCalledWith(
                 expect.objectContaining({
                     from: "newsletter@example.com",
                     to: "subscriber@example.com",
@@ -77,7 +77,7 @@ describe("Comprehensive API Test Suite", () => {
 
             const params = Promise.resolve({ siteId: "site-123" })
 
-            vi.mocked(addNewsletterToQueue).mockRejectedValue(new Error("Service error"))
+            vi.mocked(newsletterService.addToQueue).mockRejectedValue(new Error("Service error"))
 
             const response = await v3MessagesPost(request, { params })
             const result = await response.json()
@@ -145,7 +145,7 @@ describe("Comprehensive API Test Suite", () => {
 
             const params = Promise.resolve({ action: "getNewsletterUsage" })
 
-            vi.mocked(getNewsletterUsage).mockResolvedValue({
+            vi.mocked(emailService.getUsage).mockResolvedValue({
                 status: "ok",
                 data: {
                     forRange: {
@@ -282,7 +282,7 @@ describe("Comprehensive API Test Suite", () => {
 
             const newsletterParams = Promise.resolve({ siteId: "site-123" })
 
-            vi.mocked(addNewsletterToQueue).mockRejectedValue(new Error("Queue unavailable"))
+            vi.mocked(newsletterService.addToQueue).mockRejectedValue(new Error("Queue unavailable"))
 
             const newsletterResponse = await v3MessagesPost(newsletterRequest, { params: newsletterParams })
             const newsletterResult = await newsletterResponse.json()
@@ -318,7 +318,7 @@ describe("Comprehensive API Test Suite", () => {
 
             const statsParams = Promise.resolve({ action: "getNewsletterUsage" })
 
-            vi.mocked(getNewsletterUsage).mockRejectedValue(new Error("Database error"))
+            vi.mocked(emailService.getUsage).mockRejectedValue(new Error("Database error"))
 
             const statsResponse = await statsPost(statsRequest, { params: statsParams })
             const statsResult = await statsResponse.json()
@@ -342,7 +342,7 @@ describe("Comprehensive API Test Suite", () => {
                 formData: vi.fn().mockResolvedValue(mockFormData),
             } as unknown as Request
 
-            vi.mocked(addNewsletterToQueue).mockResolvedValue({
+            vi.mocked(newsletterService.addToQueue).mockResolvedValue({
                 messageId: "msg-456",
                 batchId: "batch-456",
             })
@@ -380,7 +380,7 @@ describe("Comprehensive API Test Suite", () => {
                 }),
             } as unknown as Request
 
-            vi.mocked(getNewsletterUsage).mockResolvedValue({
+            vi.mocked(emailService.getUsage).mockResolvedValue({
                 status: "ok",
                 data: {
                     forRange: { gte: new Date(), lte: new Date() },
@@ -397,9 +397,9 @@ describe("Comprehensive API Test Suite", () => {
             expect(statsResponse.status).toBe(200)
 
             // Verify all services were called
-            expect(addNewsletterToQueue).toHaveBeenCalled()
+            expect(newsletterService.addToQueue).toHaveBeenCalled()
             expect(sendSystemMail).toHaveBeenCalled()
-            expect(getNewsletterUsage).toHaveBeenCalled()
+            expect(emailService.getUsage).toHaveBeenCalled()
         })
     })
 })

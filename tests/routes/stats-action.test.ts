@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { POST } from '@/app/stats/[action]/route'
-import { getNewsletterUsage } from '@/service/stats-service'
+import { emailService } from '@/service/email-service'
 
 // Mock the service
-vi.mocked(getNewsletterUsage).mockImplementation(vi.fn())
+vi.mocked(emailService.getUsage).mockImplementation(vi.fn())
 
 describe('/stats/[action] POST', () => {
   beforeEach(() => {
@@ -38,7 +38,7 @@ describe('/stats/[action] POST', () => {
         },
       }
 
-      vi.mocked(getNewsletterUsage).mockResolvedValue(mockUsageResult)
+      vi.mocked(emailService.getUsage).mockResolvedValue(mockUsageResult)
 
       // Act
       const response = await POST(mockRequest, { params: mockParams })
@@ -47,7 +47,7 @@ describe('/stats/[action] POST', () => {
       // Assert
       expect(response.status).toBe(200)
       expect(result).toEqual(JSON.parse(JSON.stringify(mockUsageResult)))
-      expect(getNewsletterUsage).toHaveBeenCalledWith(requestBody)
+      expect(emailService.getUsage).toHaveBeenCalledWith(requestBody)
     })
 
     it('should handle service errors for getNewsletterUsage', async () => {
@@ -65,7 +65,7 @@ describe('/stats/[action] POST', () => {
       const mockParams = Promise.resolve({ action: 'getNewsletterUsage' })
 
       const serviceError = new Error('Database connection failed')
-      vi.mocked(getNewsletterUsage).mockRejectedValue(serviceError)
+      vi.mocked(emailService.getUsage).mockRejectedValue(serviceError)
 
       // Act
       const response = await POST(mockRequest, { params: mockParams })
@@ -91,7 +91,7 @@ describe('/stats/[action] POST', () => {
 
       // The service should handle validation, but let's test what happens
       const serviceError = new Error('Missing required parameters')
-      vi.mocked(getNewsletterUsage).mockRejectedValue(serviceError)
+      vi.mocked(emailService.getUsage).mockRejectedValue(serviceError)
 
       // Act
       const response = await POST(mockRequest, { params: mockParams })
@@ -129,7 +129,7 @@ describe('/stats/[action] POST', () => {
         },
       }
 
-      vi.mocked(getNewsletterUsage).mockResolvedValue(mockUsageResult)
+      vi.mocked(emailService.getUsage).mockResolvedValue(mockUsageResult)
 
       // Act
       const response = await POST(mockRequest, { params: mockParams })
@@ -164,7 +164,7 @@ describe('/stats/[action] POST', () => {
       // Assert
       expect(response.status).toBe(400)
       expect(result).toEqual({ message: 'Invalid action' })
-      expect(getNewsletterUsage).not.toHaveBeenCalled()
+      expect(emailService.getUsage).not.toHaveBeenCalled()
     })
 
     it('should return 400 for empty action', async () => {
@@ -227,7 +227,7 @@ describe('/stats/[action] POST', () => {
 
       // Service should handle null input gracefully or throw error
       const serviceError = new Error('Invalid input')
-      vi.mocked(getNewsletterUsage).mockRejectedValue(serviceError)
+      vi.mocked(emailService.getUsage).mockRejectedValue(serviceError)
 
       // Act
       const response = await POST(mockRequest, { params: mockParams })
@@ -267,7 +267,7 @@ describe('/stats/[action] POST', () => {
         },
       }
 
-      vi.mocked(getNewsletterUsage).mockResolvedValue(mockUsageResult)
+      vi.mocked(emailService.getUsage).mockResolvedValue(mockUsageResult)
 
       // Act
       const response = await POST(mockRequest, { params: mockParams })
@@ -305,7 +305,7 @@ describe('/stats/[action] POST', () => {
         },
       }
 
-      vi.mocked(getNewsletterUsage).mockResolvedValue(mockUsageResult)
+      vi.mocked(emailService.getUsage).mockResolvedValue(mockUsageResult)
 
       // Act
       const response = await POST(mockRequest, { params: mockParams })
@@ -314,7 +314,7 @@ describe('/stats/[action] POST', () => {
       // Assert
       expect(response.status).toBe(200)
       expect(result).toEqual(JSON.parse(JSON.stringify(mockUsageResult)))
-      expect(getNewsletterUsage).toHaveBeenCalledWith(requestBody)
+      expect(emailService.getUsage).toHaveBeenCalledWith(requestBody)
     })
   })
 })

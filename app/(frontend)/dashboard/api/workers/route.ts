@@ -1,4 +1,5 @@
-import { getWorkerStatuses } from "@/lib/core/worker-registry"
+import { WorkerRegistry } from "@/lib/core/worker-registry"
+
 
 /**
  * Returns the live status of all registered SQS background workers.
@@ -7,7 +8,7 @@ import { getWorkerStatuses } from "@/lib/core/worker-registry"
  * @route GET /dashboard/api/workers
  */
 export function GET() {
-    const workers = getWorkerStatuses()
+    const workers = WorkerRegistry.getStatuses()
     const allAlive = workers.length > 0 && workers.every((w) => w.alive)
     return Response.json({ workers, allAlive })
 }

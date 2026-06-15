@@ -76,6 +76,11 @@ vi.mock('@/lib/logger', () => ({
 
 // Mock services
 vi.mock('@/service/newsletter-service', () => ({
+  newsletterService: {
+    addToQueue: vi.fn(),
+    validateAndProcessBatch: vi.fn(),
+  },
+  // backward-compat shims for tests that destructure these
   addNewsletterToQueue: vi.fn(),
   validateAndSend: vi.fn(),
 }))
@@ -84,6 +89,13 @@ vi.mock('@/service/transaction-email-service', () => ({
   sendSystemMail: vi.fn(),
 }))
 
-vi.mock('@/service/stats-service', () => ({
+vi.mock('@/service/email-service', () => ({
+  emailService: {
+    handleNewsletterEvent: vi.fn(),
+    parseEventQuery: vi.fn(),
+    getEvents: vi.fn(),
+    getUsage: vi.fn(),
+  },
+  // backward-compat shims
   getNewsletterUsage: vi.fn(),
 }))

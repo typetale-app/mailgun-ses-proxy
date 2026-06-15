@@ -1,7 +1,8 @@
-import { startWorker } from "../lib/core/sqs-worker"
-import { QUEUE_URL } from "./aws/awsHelper"
-import { handleNewsletterEmailEvent } from "./events-service"
-import { validateAndSend } from "./newsletter-service"
+
+import { startWorker } from "@/lib/core/sqs-worker"
+import { QUEUE_URL } from "./aws-service"
+import { eventsService } from "./events-service"
+import { newsletterService } from "./newsletter-service"
 import { handleSystemEmailEvent } from "./system-email-notification"
 
 /**
@@ -13,7 +14,7 @@ export async function processNewsletterQueue() {
         name: "newsletter-sender",
         queueUrl: QUEUE_URL.NEWSLETTER!,
         visibilityTimeout: 900, // 15 minutes for processing batches
-        handler: validateAndSend
+        handler: newsletterService.validateAndProcessBatch.bind(newsletterService)
     })
 }
 
@@ -24,7 +25,7 @@ export async function processNewsletterEventsQueue() {
     return startWorker({
         name: "newsletter-events",
         queueUrl: QUEUE_URL.NEWSLETTER_NOTIFICATION!,
-        handler: handleNewsletterEmailEvent
+        handler: eventsService.handleNewsletterEvent.bind(eventsService)
     })
 }
 

@@ -1,7 +1,7 @@
 import { ApiResponse } from "@/lib/api-response"
 import { formDataToObject } from "@/lib/utils/common"
 import logger from "@/lib/core/logger"
-import { addNewsletterToQueue } from "@/service/newsletter-service"
+import { newsletterService } from "@/service/newsletter-service"
 import { MailgunMessage } from "@/types/mailgun"
 
 const log = logger.child({ module: "app:v3:messages" })
@@ -21,7 +21,7 @@ export async function POST(req: Request, { params }: pathParam) {
     if (!siteId) return ApiResponse.badRequest("siteId is required")
     try {
         const message = await validateRequest(req)
-        const { messageId, batchId } = await addNewsletterToQueue(message, siteId)
+        const { messageId, batchId } = await newsletterService.addToQueue(message, siteId)
         log.info({ messageId, batchId }, "message queued to newsletter SQS")
         return ApiResponse.raw({ id: batchId, message: "message queued to SQS" }, 200)
     } catch (e) {

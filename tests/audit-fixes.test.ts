@@ -61,7 +61,7 @@ describe('Issue 2: createNewsletterErrorEntry parameter order', () => {
       },
     }))
 
-    const { createNewsletterErrorEntry } = await import('@/service/database/db')
+    const { db } = await import('@/service/database-service/db')
 
     const messageId = 'temp-msg-id-123'
     const errorMessage = 'SES rate limit exceeded'
@@ -69,7 +69,7 @@ describe('Issue 2: createNewsletterErrorEntry parameter order', () => {
     const toEmail = 'test@example.com'
     const recipientData = '{}'
 
-    await createNewsletterErrorEntry(messageId, errorMessage, batchId, toEmail, recipientData)
+    await db.createNewsletterErrorEntry(messageId, errorMessage, batchId, toEmail, recipientData)
 
     const createArg = mockCreate.mock.calls[0][0]
     // The error column should contain the actual error message
@@ -94,20 +94,21 @@ describe('Issue 3: sendMail null content handling', () => {
       sesNewsletterClient: () => ({ send: vi.fn() }),
       QUEUE_URL: { NEWSLETTER: 'https://sqs.example.com/newsletter' },
     }))
-    vi.doMock('@/service/database/db', () => ({
+    const mockDb = {
       getNewsletterContent: vi.fn().mockResolvedValue(null),
       createNewsletterBatchEntry: vi.fn(),
       createNewsletterEntry: vi.fn(),
       createNewsletterErrorEntry: vi.fn(),
       shouldPersistNewsletterFormattedContents: vi.fn().mockReturnValue(false),
-    }))
+    }
+    vi.doMock('@/service/database-service/db', () => ({ db: mockDb, ...mockDb }))
     vi.doMock('@/lib/core/logger', () => ({
       default: {
         child: () => ({ info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() }),
       },
     }))
 
-    const { validateAndSend } = await import('@/service/newsletter-service')
+    const { newsletterService } = await import('@/service/newsletter-service')
 
     const message = {
       MessageId: 'msg-1',
@@ -121,7 +122,7 @@ describe('Issue 3: sendMail null content handling', () => {
     } as any
 
     // Should not throw — should handle null content gracefully
-    await validateAndSend(message)
+    await newsletterService.validateAndProcessBatch(message)
   })
 })
 
@@ -142,20 +143,21 @@ describe('Issue 4: Invalid messages deleted from SQS', () => {
       sesNewsletterClient: () => ({ send: vi.fn() }),
       QUEUE_URL: { NEWSLETTER: 'https://sqs.example.com/newsletter' },
     }))
-    vi.doMock('@/service/database/db', () => ({
+    const mockDb = {
       getNewsletterContent: vi.fn(),
       createNewsletterBatchEntry: vi.fn(),
       createNewsletterEntry: vi.fn(),
       createNewsletterErrorEntry: vi.fn(),
       shouldPersistNewsletterFormattedContents: vi.fn().mockReturnValue(false),
-    }))
+    }
+    vi.doMock('@/service/database-service/db', () => ({ db: mockDb, ...mockDb }))
     vi.doMock('@/lib/core/logger', () => ({
       default: {
         child: () => ({ info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() }),
       },
     }))
 
-    const { validateAndSend } = await import('@/service/newsletter-service')
+    const { newsletterService } = await import('@/service/newsletter-service')
 
     const message = {
       MessageId: 'msg-bad',
@@ -166,7 +168,7 @@ describe('Issue 4: Invalid messages deleted from SQS', () => {
 
     // Handler must resolve (not throw) so the worker can delete the message.
     // Deletion is the worker's responsibility, not the handler's.
-    await expect(validateAndSend(message)).resolves.toBeUndefined()
+    await expect(newsletterService.validateAndProcessBatch(message)).resolves.toBeUndefined()
   })
 
   it('should resolve cleanly (not throw) for message with missing siteId attribute', async () => {
@@ -178,20 +180,21 @@ describe('Issue 4: Invalid messages deleted from SQS', () => {
       sesNewsletterClient: () => ({ send: vi.fn() }),
       QUEUE_URL: { NEWSLETTER: 'https://sqs.example.com/newsletter' },
     }))
-    vi.doMock('@/service/database/db', () => ({
+    const mockDb = {
       getNewsletterContent: vi.fn(),
       createNewsletterBatchEntry: vi.fn(),
       createNewsletterEntry: vi.fn(),
       createNewsletterErrorEntry: vi.fn(),
       shouldPersistNewsletterFormattedContents: vi.fn().mockReturnValue(false),
-    }))
+    }
+    vi.doMock('@/service/database-service/db', () => ({ db: mockDb, ...mockDb }))
     vi.doMock('@/lib/core/logger', () => ({
       default: {
         child: () => ({ info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() }),
       },
     }))
 
-    const { validateAndSend } = await import('@/service/newsletter-service')
+    const { newsletterService } = await import('@/service/newsletter-service')
 
     const message = {
       MessageId: 'msg-bad-2',
@@ -204,7 +207,7 @@ describe('Issue 4: Invalid messages deleted from SQS', () => {
     } as any
 
     // Handler must resolve (not throw) so the worker can delete the message.
-    await expect(validateAndSend(message)).resolves.toBeUndefined()
+    await expect(newsletterService.validateAndProcessBatch(message)).resolves.toBeUndefined()
   })
 })
 
@@ -263,8 +266,8 @@ describe('Issue 6: stats route error handling', () => {
         child: () => ({ info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() }),
       },
     }))
-    vi.doMock('@/service/stats-service', () => ({
-      getNewsletterUsage: vi.fn(),
+    vi.doMock('@/service/email-service', () => ({
+      emailService: { getUsage: vi.fn() },
     }))
 
     const { POST } = await import('@/app/stats/[action]/route')
@@ -288,7 +291,7 @@ describe('Issue 6: stats route error handling', () => {
 describe('Issue 7: ErrorHandler context parameter', () => {
   it('should include context in the error response', async () => {
     vi.resetModules()
-    const { ErrorHandler } = await import('@/service/error-handler/error-handler')
+    const { ErrorHandler } = await import('@/tests/lib/error-handler')
 
     const error = new Error('Something failed')
     const result = ErrorHandler.handleApiError(error, 'email-sending')
@@ -300,7 +303,7 @@ describe('Issue 7: ErrorHandler context parameter', () => {
 
   it('should have undefined context when not provided', async () => {
     vi.resetModules()
-    const { ErrorHandler } = await import('@/service/error-handler/error-handler')
+    const { ErrorHandler } = await import('@/tests/lib/error-handler')
 
     const error = new Error('Something failed')
     const result = ErrorHandler.handleApiError(error)

@@ -1,8 +1,3 @@
-/**
- * Error Handler Service
- * Provides standardized error handling and response creation
- */
-
 export interface ErrorResponse {
     error: string
     message: string
@@ -11,9 +6,7 @@ export interface ErrorResponse {
 }
 
 export class ErrorHandler {
-    /**
-     * Handle API errors and convert them to standardized error objects
-     */
+
     static handleApiError(error: any, context?: string): ErrorResponse {
         if (error instanceof Error) {
             return {
@@ -23,8 +16,6 @@ export class ErrorHandler {
                 context,
             }
         }
-
-        // Handle non-Error exceptions
         return {
             error: 'Unknown Error',
             message: 'An unexpected error occurred',
@@ -33,9 +24,6 @@ export class ErrorHandler {
         }
     }
 
-    /**
-     * Create a Response object from an error response
-     */
     static createResponse(errorResponse: ErrorResponse): Response {
         return Response.json(
             {

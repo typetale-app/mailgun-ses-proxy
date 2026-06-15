@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { POST as v3MessagesPost } from '@/app/v3/[siteId]/messages/route'
 import { POST as v1SendPost } from '@/app/v1/send/route'
 import { POST as statsPost } from '@/app/stats/[action]/route'
-import { addNewsletterToQueue } from '@/service/newsletter-service'
+import { newsletterService } from '@/service/newsletter-service'
 import { sendSystemMail } from '@/service/transaction-email-service'
 import { getNewsletterUsage } from '@/service/stats-service'
 import { NextRequest } from 'next/server'
@@ -36,7 +36,7 @@ describe('Security Edge Cases', () => {
 
         const params = Promise.resolve({ siteId: maliciousSiteId })
 
-        vi.mocked(addNewsletterToQueue).mockResolvedValue({
+        vi.mocked(newsletterService.addToQueue).mockResolvedValue({
           messageId: 'msg-safe',
           batchId: 'batch-safe',
         })
@@ -45,7 +45,7 @@ describe('Security Edge Cases', () => {
         
         // Should still work - the service layer should handle sanitization
         expect(response.status).toBe(200)
-        expect(addNewsletterToQueue).toHaveBeenCalledWith(
+        expect(newsletterService.addToQueue).toHaveBeenCalledWith(
           expect.any(Object),
           maliciousSiteId // Passed as-is, service should sanitize
         )
@@ -166,7 +166,7 @@ describe('Security Edge Cases', () => {
 
         const params = Promise.resolve({ siteId: 'site-123' })
 
-        vi.mocked(addNewsletterToQueue).mockResolvedValue({
+        vi.mocked(newsletterService.addToQueue).mockResolvedValue({
           messageId: 'msg-cmd-safe',
           batchId: 'batch-cmd-safe',
         })
@@ -235,7 +235,7 @@ describe('Security Edge Cases', () => {
 
         const params = Promise.resolve({ siteId: 'site-123' })
 
-        vi.mocked(addNewsletterToQueue).mockResolvedValue({
+        vi.mocked(newsletterService.addToQueue).mockResolvedValue({
           messageId: 'msg-include-safe',
           batchId: 'batch-include-safe',
         })
@@ -345,7 +345,7 @@ describe('Security Edge Cases', () => {
 
       const params = Promise.resolve({ siteId: 'site-123' })
 
-      vi.mocked(addNewsletterToQueue).mockResolvedValue({
+      vi.mocked(newsletterService.addToQueue).mockResolvedValue({
         messageId: 'msg-lol-safe',
         batchId: 'batch-lol-safe',
       })
@@ -408,7 +408,7 @@ describe('Security Edge Cases', () => {
 
         const params = Promise.resolve({ siteId: attempt.siteId })
 
-        vi.mocked(addNewsletterToQueue).mockResolvedValue({
+        vi.mocked(newsletterService.addToQueue).mockResolvedValue({
           messageId: 'msg-priv-safe',
           batchId: 'batch-priv-safe',
         })
@@ -477,7 +477,7 @@ describe('Security Edge Cases', () => {
 
         const params = Promise.resolve({ siteId: 'site-123' })
 
-        vi.mocked(addNewsletterToQueue).mockResolvedValue({
+        vi.mocked(newsletterService.addToQueue).mockResolvedValue({
           messageId: 'msg-protocol-safe',
           batchId: 'batch-protocol-safe',
         })
@@ -503,7 +503,7 @@ describe('Security Edge Cases', () => {
 
       const params = Promise.resolve({ siteId: 'site-race' })
 
-      vi.mocked(addNewsletterToQueue).mockResolvedValue({
+      vi.mocked(newsletterService.addToQueue).mockResolvedValue({
         messageId: 'msg-race-safe',
         batchId: 'batch-race-safe',
       })

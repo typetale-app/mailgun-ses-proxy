@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { POST } from '@/app/v3/[siteId]/messages/route'
-import { addNewsletterToQueue } from '@/service/newsletter-service'
+import { newsletterService } from '@/service/newsletter-service'
 
 // Mock the service
-vi.mocked(addNewsletterToQueue).mockImplementation(vi.fn())
+vi.mocked(newsletterService.addToQueue).mockImplementation(vi.fn())
 
 describe('/v3/[siteId]/messages POST', () => {
   beforeEach(() => {
@@ -26,7 +26,7 @@ describe('/v3/[siteId]/messages POST', () => {
 
     const mockParams = Promise.resolve({ siteId: 'site-123' })
 
-    vi.mocked(addNewsletterToQueue).mockResolvedValue({
+    vi.mocked(newsletterService.addToQueue).mockResolvedValue({
       messageId: 'msg-123',
       batchId: 'batch-123',
     })
@@ -38,7 +38,7 @@ describe('/v3/[siteId]/messages POST', () => {
     // Assert
     expect(response.status).toBe(200)
     expect(result.id).toEqual('batch-123')
-    expect(addNewsletterToQueue).toHaveBeenCalledWith(
+    expect(newsletterService.addToQueue).toHaveBeenCalledWith(
       expect.objectContaining({
         from: 'sender@example.com',
         to: 'recipient@example.com',
@@ -65,7 +65,7 @@ describe('/v3/[siteId]/messages POST', () => {
 
     const mockParams = Promise.resolve({ siteId: 'site-123' })
 
-    vi.mocked(addNewsletterToQueue).mockResolvedValue({
+    vi.mocked(newsletterService.addToQueue).mockResolvedValue({
       messageId: 'msg-123',
       batchId: 'no-batch-id-provided',
     })
@@ -77,7 +77,7 @@ describe('/v3/[siteId]/messages POST', () => {
     // Assert
     expect(response.status).toBe(200)
     expect(result.id).toEqual('no-batch-id-provided')
-    expect(addNewsletterToQueue).toHaveBeenCalledWith(
+    expect(newsletterService.addToQueue).toHaveBeenCalledWith(
       expect.objectContaining({
         'v:email-id': 'no-batch-id-provided',
       }),
@@ -111,7 +111,7 @@ describe('/v3/[siteId]/messages POST', () => {
     const mockParams = Promise.resolve({ siteId: 'site-123' })
 
     const serviceError = new Error('Service unavailable')
-    vi.mocked(addNewsletterToQueue).mockRejectedValue(serviceError)
+    vi.mocked(newsletterService.addToQueue).mockRejectedValue(serviceError)
 
     // Act
     const response = await POST(mockRequest, { params: mockParams })
@@ -133,7 +133,7 @@ describe('/v3/[siteId]/messages POST', () => {
 
     const mockParams = Promise.resolve({ siteId: 'site-123' })
 
-    vi.mocked(addNewsletterToQueue).mockRejectedValue('String error')
+    vi.mocked(newsletterService.addToQueue).mockRejectedValue('String error')
 
     // Act
     const response = await POST(mockRequest, { params: mockParams })
@@ -177,7 +177,7 @@ describe('/v3/[siteId]/messages POST', () => {
 
     const mockParams = Promise.resolve({ siteId: 'site-123' })
 
-    vi.mocked(addNewsletterToQueue).mockResolvedValue({
+    vi.mocked(newsletterService.addToQueue).mockResolvedValue({
       messageId: 'msg-456',
       batchId: 'batch-456',
     })
@@ -189,7 +189,7 @@ describe('/v3/[siteId]/messages POST', () => {
     // Assert
     expect(response.status).toBe(200)
     expect(result.id).toEqual('batch-456')
-    expect(addNewsletterToQueue).toHaveBeenCalledWith(
+    expect(newsletterService.addToQueue).toHaveBeenCalledWith(
       expect.objectContaining({
         to: ['recipient1@example.com', 'recipient2@example.com'],
         'v:email-id': 'batch-456',
