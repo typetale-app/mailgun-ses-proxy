@@ -1,14 +1,16 @@
 import { MessageTag, SendEmailCommand, SendEmailCommandOutput } from "@aws-sdk/client-sesv2"
 import logger from "../lib/core/logger"
+import { awsService } from "./aws-service"
 import { prisma } from "./db-service"
 import { EmailPayload } from "./validation-service"
-import { awsService } from "./aws-service"
 
 class TransactionalEmailService {
 
-    private log = logger.child({ module: "service:transactional-email-service" })
+    private log = logger.child({ module: "TransactionalEmailService" })
 
     constructor() {
+        // skip env var checking during `next build`
+        if (process.env.NEXT_BUILD) return
         if (!process.env.TRANSACTIONAL_CONFIGURATION_SET_NAME) {
             throw new Error("env variable TRANSACTIONAL_CONFIGURATION_SET_NAME is not defined")
         }

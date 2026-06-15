@@ -20,7 +20,7 @@ RUN NODE_ENV=development npm ci
 COPY --chown=appuser:appgroup . .
 
 # Run build scripts (Prisma generate, Next build, and custom server build)
-RUN DATABASE_URL=mysql://localhost:3306/dummy npm run build && \
+RUN DATABASE_URL=mysql://localhost:3306/dummy NEXT_BUILD=true npm run build && \
     npm prune --omit=dev
 
 # Expose the application port

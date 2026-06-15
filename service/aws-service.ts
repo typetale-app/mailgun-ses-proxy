@@ -18,6 +18,7 @@ export class AwsService {
 
     constructor() {
         // check env vars before allowing object creation
+        if (process.env.NEXT_BUILD) return;
         if (!process.env.SES_REGION) throw new Error("env variable SES_REGION not found")
         if (!process.env.SQS_REGION) throw new Error("env variable SQS_REGION not found")
     }
