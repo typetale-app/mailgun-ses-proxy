@@ -1,18 +1,3 @@
-**/.classpath
-**/.dockerignore
-**/.env
-**/.git
-**/.gitignore
-**/.project
-**/.settings
-**/.toolstarget
-**/.vs
-**/.vscode
-**/.next
-**/.cache
-**/*.*proj.user
-**/*.dbmdl
-**/*.jfm
 **/charts
 **/docker-compose*
 **/compose.y*ml
@@ -27,4 +12,5 @@
 **/data
 LICENSE
 README.md
-**/dist
+**/.*
+!.dockerignore
