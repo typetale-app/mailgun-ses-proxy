@@ -1,4 +1,4 @@
-# Ghost CMS ⇔ AWS SES Proxy (Mailgun Alternative)
+# Ghost Mailgun SES proxy: Ghost CMS ⇔ AWS SES (Mailgun Alternative)
 
 [![Build Status](https://img.shields.io/badge/Build-OK-green)](#)
 ![Version](https://img.shields.io/github/package-json/v/typetale-app/mailgun-ses-proxy)
