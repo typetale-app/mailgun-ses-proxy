@@ -54,6 +54,9 @@ model NewsletterNotifications {
   timestamp      DateTime
   created        DateTime           @default(now())
   newsletter     NewsletterMessages @relation(fields: [messageId], references: [messageId])
+
+  // Upstream events API orders by id, not created.
+  @@index([type, id, created], map: "idx_notifications_type_id_created")
 }
 
 model SystemMailNotifications {
